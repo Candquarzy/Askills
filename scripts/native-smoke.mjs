@@ -1,13 +1,21 @@
 // Windows WebView2 smoke against the built debug executable. No IPC mocks.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { chromium, expect } from "@playwright/test";
 
 assert.equal(process.platform, "win32", "This smoke uses Windows WebView2.");
@@ -25,22 +33,27 @@ const endpoint = `http://127.0.0.1:${port}`;
 const executable = process.env.ASKILLS_SMOKE_EXE
   ? path.resolve(root, process.env.ASKILLS_SMOKE_EXE)
   : path.join(root, "src-tauri/target/debug/askills.exe");
-const child = spawn(executable, [], {
-  cwd: root,
-  windowsHide: true,
-  stdio: ["ignore", "pipe", "pipe"],
-  env: {
-    ...process.env,
-    ASKILLS_TEST_DATA_DIR: data,
-    WEBVIEW2_USER_DATA_FOLDER: path.join(temporary, "webview"),
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
-  },
-});
 let processLog = "";
-child.stdout.on("data", (bytes) => (processLog += bytes));
-child.stderr.on("data", (bytes) => (processLog += bytes));
 let launchError;
-child.on("error", (error) => (launchError = error));
+function launch() {
+  launchError = undefined;
+  const process = spawn(executable, [], {
+    cwd: root,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...globalThis.process.env,
+      ASKILLS_TEST_DATA_DIR: data,
+      WEBVIEW2_USER_DATA_FOLDER: path.join(temporary, "webview"),
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
+    },
+  });
+  process.stdout.on("data", (bytes) => (processLog += bytes));
+  process.stderr.on("data", (bytes) => (processLog += bytes));
+  process.on("error", (error) => (launchError = error));
+  return process;
+}
+let child = launch();
 let browser;
 let page;
 const errors = [];
@@ -52,7 +65,7 @@ const report = {
   checks: [],
 };
 console.log("Starting isolated native window smoke…");
-try {
+async function connectWindow() {
   let ready = false;
   for (let attempt = 0; attempt < 120; attempt++) {
     if (launchError) throw launchError;
@@ -75,6 +88,56 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   page.setDefaultTimeout(30_000);
   await page.waitForFunction(() => !!window.__TAURI_INTERNALS__);
+}
+const configuration = JSON.parse(
+  await readFile(path.join(root, "src-tauri/tauri.conf.json"), "utf8"),
+).app.windows[0];
+async function expectStartupSize() {
+  await expect
+    .poll(() => page.evaluate(() => window.innerWidth))
+    .toBe(configuration.width);
+  await expect
+    .poll(() => page.evaluate(() => window.innerHeight))
+    .toBe(configuration.height);
+}
+async function nativeWindowAction(action) {
+  // Only manipulate this test's child window, never other Askills processes.
+  const actions = {
+    resize:
+      "[AskillsWindowSmoke]::SetWindowPos($handle,[IntPtr]::Zero,0,0,900,600,6) | Out-Null",
+    maximize: "[AskillsWindowSmoke]::ShowWindowAsync($handle,3) | Out-Null",
+    close:
+      "[AskillsWindowSmoke]::PostMessage($handle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null",
+  };
+  assert(Object.hasOwn(actions, action));
+  assert(Number.isSafeInteger(child.pid));
+  await promisify(execFile)(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AskillsWindowSmoke {
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int height, uint flags);
+  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h, int command);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+}
+'@
+    $handle = (Get-Process -Id ${child.pid} -ErrorAction Stop).MainWindowHandle
+    if ($handle -eq [IntPtr]::Zero) { throw 'Test window handle missing' }
+    ${actions[action]}
+  `,
+    ],
+    { windowsHide: true, timeout: 15000 },
+  );
+}
+try {
+  await connectWindow();
+  await expectStartupSize();
   await expect(
     page.getByRole("button", { name: "导入本地技能" }),
   ).toBeEnabled();
@@ -297,6 +360,27 @@ try {
     path: path.join(output, "window.png"),
     fullPage: true,
   });
+  for (const action of ["resize", "maximize"]) {
+    await nativeWindowAction(action);
+    await expect
+      .poll(() => page.evaluate(() => window.innerWidth))
+      .not.toBe(configuration.width);
+    const exited = once(child, "exit");
+    await nativeWindowAction("close");
+    await Promise.race([
+      exited,
+      delay(15000, undefined, { ref: false }).then(() => {
+        throw new Error("Test window did not close");
+      }),
+    ]);
+    await browser.close().catch(() => {});
+    child = launch();
+    await connectWindow();
+    await expectStartupSize();
+  }
+  report.checks.push(
+    "startup size is always 1080×720 logical pixels after closing a resized or maximized native window",
+  );
   console.log(JSON.stringify(report));
 } catch (error) {
   if (page) {

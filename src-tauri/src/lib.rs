@@ -32,6 +32,23 @@ pub fn run() {
             let runtime = commands::Runtime::new(data);
             runtime.apply_initial_theme(app.handle());
             app.manage(runtime);
+            // Always start at the configured logical size. Apply this before
+            // showing the window so an old maximized/restore rectangle cannot
+            // briefly appear or influence the next launch.
+            if let Some(window) = app.get_webview_window("main") {
+                let config = app
+                    .config()
+                    .app
+                    .windows
+                    .iter()
+                    .find(|window| window.label == "main")
+                    .ok_or("main window configuration is missing")?;
+                window.set_fullscreen(false)?;
+                window.unmaximize()?;
+                window.set_size(tauri::LogicalSize::new(config.width, config.height))?;
+                window.center()?;
+                window.show()?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
