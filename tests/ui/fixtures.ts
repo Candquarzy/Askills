@@ -21,8 +21,6 @@ type FixtureOptions = {
   sourceCandidateCount?: number;
   downloadDelayMs?: number;
   downloadFailures?: Record<string, number>;
-  previewMarkdown?: string;
-  translationFailure?: boolean;
 };
 
 declare global {
@@ -132,7 +130,6 @@ export async function installBackendFixture(
       window.isTauri = true;
       let failedImports = 0;
       let failedRegistration = false;
-      let failedTranslation = false;
       let selectionNumber = 0;
       let previewNumber = 0;
       let operationInFlight = false;
@@ -212,7 +209,6 @@ export async function installBackendFixture(
             fileCount: 4,
             totalBytes: 4096,
             markdown:
-              options.previewMarkdown ||
               documents[skill.id] ||
               `# ${skill.name}\n\nRead the reference before running this skill.`,
             warnings: [],
@@ -290,18 +286,6 @@ export async function installBackendFixture(
               case "discard_import":
                 previews.delete(String(args.importId));
                 return null;
-              case "translate_preview": {
-                if (!previews.has(String(args.importId)))
-                  throw error("PreviewExpired", "导入预览已失效");
-                if (options.translationFailure && !failedTranslation) {
-                  failedTranslation = true;
-                  throw error(
-                    "TranslationUnavailable",
-                    "模拟翻译服务暂时不可用，请重试",
-                  );
-                }
-                return "## 中文说明\n\n请先阅读参考资料，再运行此技能。\n\n```rust\nlet result = task.await?;\n```\n\n保留 `task.await` 原样。";
-              }
               case "finish_import": {
                 const preview = previews.get(String(args.importId));
                 if (!preview) throw error("PreviewExpired", "导入预览已失效");

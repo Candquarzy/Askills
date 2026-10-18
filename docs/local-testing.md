@@ -93,8 +93,6 @@ Git 模式使用本机代理/凭据和独立临时仓库，不在项目中执行
 
 ## 7. 自动化检查
 
-翻译可单独人工验证：准备正文只有 `Hello world` 的测试技能，打开本地导入预览，确认 MyMemory 发送/额度说明，然后点击“翻译为简体中文”。预期出现中文，可切换原文；关闭预览不会导入，源 `SKILL.md` 不变。只有点击才产生外部请求，勿用不适合分享的文本测试。断网或额度用尽时应显示错误并保留原文。
-
 按模块运行 Rust 测试：
 
 ```powershell
@@ -105,7 +103,6 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::deploym
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib sources::github
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib sources::github::git
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib commands::tests
-cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::translation
 ```
 
 完整检查：
@@ -130,12 +127,9 @@ pnpm test:native
 pnpm test:native --github
 pnpm test:native --git
 pnpm test:native --git --download
-pnpm test:native --git --translate
 ```
 
 原生测试启动 `src-tauri/target/debug/askills.exe`，使用独立临时数据目录和 WebView2 缓存，通过仅本机的调试端口操作真实 IPC。结束后关闭测试进程并清理它创建的临时目录，证据保存在 `test-results/native/`。`--github` 通过 API、`--git` 通过本机 Git 在原生 UI 中执行本仓库公共技能的查询、下载、确认导入与阅读，随后保存别名并重新加载页面检查持久化；不修改真实用户技能库。临时数据目录覆盖只在调试构建启用。
-
-`--download` 改为直接下载流程，检查顶部通知和进度；`--translate` 在预览阶段把本公开仓库的 `tauri-setup` 正文发送到 MyMemory，消耗该服务额度，验证实际中文结果与原文切换。两种扩展参数分别使用，不同时指定。
 
 默认 exe 正在运行时会被 Windows 占用。关闭自己的应用再构建，或者用独立名称验证：
 
@@ -151,7 +145,6 @@ Remove-Item Env:ASKILLS_SMOKE_EXE
 
 ```powershell
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib native_git_public_smoke -- --ignored --nocapture
-cargo test --manifest-path src-tauri/Cargo.toml --locked --lib live_mymemory_hello_world -- --ignored --nocapture
 ```
 
 这些检查不能代替正式安装包、macOS/Linux 或真实 Agent 技能加载验收。项目当前记录的结果见 [验证记录](validation.md)。

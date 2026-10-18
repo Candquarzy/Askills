@@ -23,6 +23,9 @@ test("候选提供独立下载、预览、多选；关闭预览释放暂存且�
   const dialog = page.getByRole("dialog", { name: "预览技能", exact: true });
   await expect(dialog).toBeVisible();
   await expect(
+    dialog.getByRole("button", { name: "翻译为简体中文" }),
+  ).toHaveCount(0);
+  await expect(
     dialog.getByRole("button", { name: "下载到技能库", exact: true }),
   ).toBeVisible();
   expect(await invocations(page, "finish_import")).toHaveLength(0);

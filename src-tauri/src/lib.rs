@@ -54,7 +54,6 @@ pub fn run() {
             commands::get_git_version,
             commands::prepare_github,
             commands::get_download_progress,
-            commands::translate_preview,
             commands::set_library_root,
             commands::cancel_operation,
             commands::get_revision_diff,

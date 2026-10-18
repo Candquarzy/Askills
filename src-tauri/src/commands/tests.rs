@@ -13,47 +13,6 @@ fn write_skill(path: &Path, body: &str) {
 }
 
 #[test]
-fn translation_is_preview_bound_and_keeps_source_and_import_state_unchanged() {
-    let temporary = tempfile::tempdir().unwrap();
-    let source = temporary.path().join("sample");
-    // All visible prose is already Chinese; code and metadata must not be sent.
-    write_skill(&source, "# 说明\n中文正文\n```sh\necho hello\n```\n");
-    let original = fs::read_to_string(source.join("SKILL.md")).unwrap();
-    let mut workspace = Workspace::open(temporary.path().join("app")).unwrap();
-    let cancel = AtomicBool::new(false);
-    let preview = workspace
-        .prepare(source.clone(), None, None, &cancel)
-        .unwrap();
-    assert_eq!(
-        workspace
-            .translate_preview("unknown", &cancel)
-            .unwrap_err()
-            .code,
-        "PreviewExpired"
-    );
-    assert_eq!(
-        workspace.translate_preview(&preview.id, &cancel).unwrap(),
-        original
-    );
-    assert_eq!(
-        fs::read_to_string(source.join("SKILL.md")).unwrap(),
-        original
-    );
-    assert_eq!(workspace.imports[&preview.id].preview.markdown, original);
-    assert!(workspace.store.list_skills().unwrap().is_empty());
-    workspace.imports.get_mut(&preview.id).unwrap().created =
-        Instant::now() - TOKEN_TTL - Duration::from_secs(1);
-    workspace.expire();
-    assert_eq!(
-        workspace
-            .translate_preview(&preview.id, &cancel)
-            .unwrap_err()
-            .code,
-        "PreviewExpired"
-    );
-}
-
-#[test]
 fn directory_grants_are_purpose_bound_and_expire_at_the_next_command() {
     let temporary = tempfile::tempdir().unwrap();
     let runtime = Runtime::new(temporary.path().join("app"));
