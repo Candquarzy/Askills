@@ -141,6 +141,50 @@ try {
     invoke("translate_preview", { importId: "removed-feature" }),
   );
   report.checks.push("removed translation IPC is unavailable");
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "设置", exact: true })
+    .click();
+  await page.getByLabel("外观模式", { exact: true }).selectOption("dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByLabel("自定义颜色", { exact: true }).fill("#b060d0");
+  await page.getByRole("button", { name: "应用自定义颜色" }).click();
+  await expect(page.getByLabel("自定义颜色", { exact: true })).toBeEnabled();
+  const savedAppearance = { mode: "dark", accentColor: "#b060d0" };
+  assert.deepEqual((await invoke("get_snapshot")).appearance, savedAppearance);
+  await page.reload();
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "设置", exact: true })
+    .click();
+  await expect(page.getByLabel("外观模式", { exact: true })).toHaveValue(
+    "dark",
+  );
+  await expect(page.getByLabel("自定义颜色", { exact: true })).toHaveValue(
+    "#b060d0",
+  );
+  assert.equal(
+    await page
+      .locator("html")
+      .evaluate((element) =>
+        getComputedStyle(element).getPropertyValue("--accent").trim(),
+      ),
+    "#b060d0",
+  );
+  report.checks.push(
+    "appearance saved through native IPC/SQLite; dark mode and custom accent survive reload",
+  );
+  await page.screenshot({
+    path: path.join(output, "appearance-dark.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "恢复默认", exact: true }).click();
+  await expect(page.getByLabel("外观模式", { exact: true })).toHaveValue(
+    "system",
+  );
+  await expect(page.getByLabel("自定义颜色", { exact: true })).toHaveValue(
+    "#005fb8",
+  );
   if (process.argv.includes("--github") || useGit) {
     console.log(
       "Testing public GitHub preview and import through the native UI…",

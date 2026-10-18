@@ -29,12 +29,15 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data = commands::data_directory(app.handle())?;
-            app.manage(commands::Runtime::new(data));
+            let runtime = commands::Runtime::new(data);
+            runtime.apply_initial_theme(app.handle());
+            app.manage(runtime);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             commands::get_snapshot,
+            commands::set_appearance,
             commands::remember_repository,
             commands::set_skill_display_name,
             commands::pick_directory,

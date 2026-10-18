@@ -10,13 +10,13 @@
 .operation-toast {
   width: min(540px, 100%);
   padding: 14px 16px;
-  border: 1px solid #cad8c9;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fcfff9;
-  color: #34513a;
+  background: var(--surface);
+  color: var(--text-primary);
   box-shadow:
-    0 8px 28px #203d2529,
-    0 2px 5px #203d2512;
+    0 8px 28px var(--shadow-color),
+    0 2px 5px var(--shadow-color);
   font-size: 13px;
   line-height: 1.5;
   pointer-events: auto;
@@ -24,9 +24,9 @@
 }
 
 .operation-toast-error {
-  background: #fff8f5;
-  border-color: #e4c4b8;
-  color: #8a4632;
+  background: var(--error-soft);
+  border-color: var(--line);
+  color: var(--error-text);
 }
 
 .operation-toast-heading {
@@ -62,30 +62,23 @@
   overflow: hidden;
   border: 0;
   border-radius: 5px;
-  accent-color: #54815c;
-  background: #e4ece0;
+  accent-color: var(--accent);
+  background: var(--accent-text);
 }
 
 .operation-toast-progress progress::-webkit-progress-bar {
-  background: #e4ece0;
+  background: var(--progress-track);
   border-radius: 5px;
 }
 
 .operation-toast-progress progress::-webkit-progress-value {
-  background: #54815c;
+  background: var(--accent-text);
   border-radius: 5px;
   transition: width 0.15s ease;
 }
 
 .operation-toast-progress progress:indeterminate {
-  background: linear-gradient(
-    to right,
-    #e4ece0 0%,
-    #e4ece0 30%,
-    #54815c 50%,
-    #e4ece0 70%,
-    #e4ece0 100%
-  );
+  background: var(--accent-text);
   background-size: 250% 100%;
   animation: operation-progress 1.4s linear infinite;
 }
@@ -101,7 +94,7 @@
   flex-wrap: wrap;
   margin-top: 7px;
   font-size: 11px;
-  color: #5b715d;
+  color: var(--text-secondary);
 }
 
 .operation-toast-file {
@@ -110,13 +103,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
-  color: #5b715d;
+  color: var(--text-secondary);
 }
 
 .operation-toast-bytes {
   margin: 3px 0 0;
   font-size: 11px;
-  color: #5b715d;
+  color: var(--text-secondary);
 }
 
 @keyframes operation-progress {

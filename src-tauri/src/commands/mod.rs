@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use crate::services::{deployments, library, projects};
 use crate::sources::github;
-use crate::storage::Store;
+use crate::storage::{Appearance, Store, ThemeMode};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -142,6 +142,15 @@ pub struct DownloadStatus {
     stage: String,
 }
 impl Runtime {
+    pub fn apply_initial_theme(&self, app: &AppHandle) {
+        if let Ok(locked) = self.workspace.lock()
+            && let Ok(workspace) = locked.as_ref()
+            && let Ok(appearance) = workspace.store.appearance()
+            && let Some(window) = app.get_webview_window("main")
+        {
+            let _ = window.set_theme(native_theme(appearance.mode));
+        }
+    }
     pub fn new(path: PathBuf) -> Arc<Self> {
         Arc::new(Self {
             workspace: Mutex::new(Workspace::open(path)),
@@ -149,6 +158,13 @@ impl Runtime {
             cancel: AtomicBool::new(false),
             download_progress: Mutex::new(None),
         })
+    }
+}
+fn native_theme(mode: ThemeMode) -> Option<tauri::Theme> {
+    match mode {
+        ThemeMode::System => None,
+        ThemeMode::Light => Some(tauri::Theme::Light),
+        ThemeMode::Dark => Some(tauri::Theme::Dark),
     }
 }
 struct BusyGuard(Arc<Runtime>);
@@ -191,6 +207,7 @@ pub struct Snapshot {
     library_root: String,
     recovery: Vec<String>,
     repository_history: Vec<String>,
+    appearance: Appearance,
 }
 #[derive(Serialize)]
 pub struct DirectorySelection {
@@ -238,7 +255,25 @@ pub async fn get_snapshot(state: State<'_, Arc<Runtime>>) -> Result<Snapshot> {
             library_root: w.store.library_root.to_string_lossy().into_owned(),
             recovery: w.recovery.clone(),
             repository_history: w.store.repository_history()?,
+            appearance: w.store.appearance()?,
         })
+    })
+    .await
+}
+#[tauri::command]
+pub async fn set_appearance(
+    app: AppHandle,
+    state: State<'_, Arc<Runtime>>,
+    appearance: Appearance,
+) -> Result<Appearance> {
+    work(state.inner().clone(), move |w, _| {
+        let saved = w.store.set_appearance(appearance)?;
+        if let Some(window) = app.get_webview_window("main") {
+            // Native decorations depend on platform support; content theming
+            // and persistence must remain usable if decorations cannot change.
+            let _ = window.set_theme(native_theme(saved.mode));
+        }
+        Ok(saved)
     })
     .await
 }

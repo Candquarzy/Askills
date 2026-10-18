@@ -8,6 +8,7 @@ import type {
   Skill,
   SkillDocument,
   Snapshot,
+  Appearance,
 } from "../../src/lib/ipc/types";
 
 type Invocation = { command: string; args: Record<string, unknown> };
@@ -23,6 +24,8 @@ type FixtureOptions = {
   downloadFailures?: Record<string, number>;
   repositoryHistory?: string[];
   resolveFailure?: boolean;
+  appearance?: Appearance;
+  appearanceSaveFailure?: boolean;
 };
 
 declare global {
@@ -101,6 +104,11 @@ export async function installBackendFixture(
 ) {
   await page.addInitScript(
     ({ options, rust, security, revisions }) => {
+      let appearance: Appearance = JSON.parse(
+        localStorage.getItem("askills-test-appearance") || "null",
+      ) ||
+        options.appearance || { mode: "system", accentColor: "#005fb8" };
+      let failedAppearance = false;
       let repositoryHistory: string[] =
         JSON.parse(
           localStorage.getItem("askills-test-repository-history") || "null",
@@ -249,8 +257,30 @@ export async function installBackendFixture(
                   libraryRoot: "D:/Example/Askills Library",
                   recovery: [],
                   repositoryHistory,
+                  appearance,
                 };
                 return structuredClone(snapshot);
+              }
+              case "set_appearance": {
+                if (options.appearanceSaveFailure && !failedAppearance) {
+                  failedAppearance = true;
+                  throw error("WriteFailed", "模拟设置保存失败");
+                }
+                const value = args.appearance as Appearance;
+                if (
+                  !["system", "light", "dark"].includes(value.mode) ||
+                  !/^#[\da-f]{6}$/i.test(value.accentColor)
+                )
+                  throw error("InvalidAppearance", "个性化设置无效");
+                appearance = {
+                  ...value,
+                  accentColor: value.accentColor.toLowerCase(),
+                };
+                localStorage.setItem(
+                  "askills-test-appearance",
+                  JSON.stringify(appearance),
+                );
+                return { ...appearance };
               }
               case "remember_repository": {
                 const value = String(args.repository)

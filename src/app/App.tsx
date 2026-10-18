@@ -26,6 +26,7 @@ import type {
   Deployment,
   Skill,
   Project,
+  Appearance,
 } from "../lib/ipc/types";
 import { LibraryView } from "../features/library/LibraryView";
 import { ProjectsView } from "../features/projects/ProjectsView";
@@ -34,10 +35,13 @@ import { SourcesView } from "../features/sources/SourcesView";
 import { Modal } from "../components/Modal";
 import { Markdown } from "../components/Markdown";
 import { FontNotice } from "../components/FontNotice";
+import { AppearanceSettings } from "../features/settings/AppearanceSettings";
+import { DEFAULT_APPEARANCE, useAppearance } from "./appearance";
 import { OperationContext, type OperationProgress } from "./OperationContext";
 import { OperationToast } from "../components/OperationToast";
 import "./styles.css";
 import "./fonts.css";
+import "./theme.css";
 
 type Page = "library" | "projects" | "sources" | "settings";
 type Dialog =
@@ -60,10 +64,12 @@ const initial: Snapshot = {
   libraryRoot: "",
   recovery: [],
   repositoryHistory: [],
+  appearance: DEFAULT_APPEARANCE,
 };
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<Snapshot>(initial);
+  useAppearance(snapshot.appearance);
   const [page, setPage] = useState<Page>("library");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -102,7 +108,11 @@ export default function App() {
     }
   };
   async function reload() {
-    const result = await call<Snapshot>("get_snapshot");
+    const loaded = await call<Snapshot>("get_snapshot");
+    const result = {
+      ...loaded,
+      appearance: loaded.appearance ?? DEFAULT_APPEARANCE,
+    };
     setSnapshot(result);
     setReady(true);
     return result;
@@ -304,6 +314,15 @@ export default function App() {
     });
     if (result) setNotice("技能库位置已更新。");
   }
+  async function saveAppearance(appearance: Appearance) {
+    const result = await run("保存个性化设置", () =>
+      call<Appearance>("set_appearance", { appearance }),
+    );
+    if (result) {
+      setSnapshot((current) => ({ ...current, appearance: result }));
+      setNotice("个性化设置已保存。");
+    }
+  }
   const nav = [
     {
       id: "library",
@@ -355,6 +374,7 @@ export default function App() {
             {nav.map(({ id, title, Icon, ...item }) => (
               <button
                 key={id}
+                aria-label={title}
                 className={page === id ? "nav-item active" : "nav-item"}
                 disabled={!!busy}
                 onClick={() => setPage(id)}
@@ -461,9 +481,14 @@ export default function App() {
                   <div>
                     <p className="eyebrow">MAKE IT YOURS</p>
                     <h1>设置</h1>
-                    <p className="subtitle">本地数据的位置与使用方式。</p>
+                    <p className="subtitle">外观、主题色与本地数据。</p>
                   </div>
                 </header>
+                <AppearanceSettings
+                  value={snapshot.appearance}
+                  busy={disabled}
+                  save={(appearance) => void saveAppearance(appearance)}
+                />
                 <section className="settings-section">
                   <h2>本地技能库</h2>
                   <p className="path">

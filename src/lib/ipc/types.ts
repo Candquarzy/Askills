@@ -1,3 +1,7 @@
+export type Appearance = {
+  mode: "system" | "light" | "dark";
+  accentColor: string;
+};
 export type Source = {
   kind: string;
   url: string | null;
@@ -76,6 +80,7 @@ export type Snapshot = {
   libraryRoot: string;
   recovery: string[];
   repositoryHistory: string[];
+  appearance: Appearance;
 };
 export type ImportPreview = {
   name: string;
