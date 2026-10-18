@@ -3,6 +3,11 @@ import ReactDOM from "react-dom/client";
 import App from "./app/App";
 import { I18nProvider } from "./app/i18n";
 
+// Cards provide their own menu; every other surface suppresses the WebView menu.
+document.addEventListener("contextmenu", (event) => event.preventDefault(), {
+  capture: true,
+});
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <I18nProvider>

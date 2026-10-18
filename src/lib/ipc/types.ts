@@ -37,7 +37,12 @@ export type SkillDocument = {
   markdown: string;
   warnings: string[];
 };
-export type Project = { id: string; name: string; path: string };
+export type Project = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  path: string;
+};
 export type DetectedSkill = {
   path: string;
   resolvedPath: string | null;

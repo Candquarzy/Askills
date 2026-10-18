@@ -208,6 +208,45 @@ try {
     invoke("translate_preview", { importId: "removed-feature" }),
   );
   report.checks.push("removed translation IPC is unavailable");
+  for (const [command, args] of [
+    ["remove_library_skills", { skillIds: [] }],
+    ["remove_projects", { projectIds: [] }],
+    [
+      "set_project_display_name",
+      { projectId: "../invalid", displayName: "name" },
+    ],
+  ]) {
+    const rejected = await page.evaluate(
+      async ({ command, args }) => {
+        try {
+          await window.__TAURI_INTERNALS__.invoke(command, args);
+          return null;
+        } catch (error) {
+          return error;
+        }
+      },
+      { command, args },
+    );
+    assert.equal(
+      rejected?.code,
+      command === "set_project_display_name"
+        ? "InvalidIdentifier"
+        : "InvalidSelection",
+    );
+  }
+  assert(
+    await page
+      .locator("main")
+      .evaluate(
+        (node) =>
+          !node.dispatchEvent(
+            new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+          ),
+      ),
+  );
+  report.checks.push(
+    "management IPC reaches Rust validation; empty batches and invalid IDs rejected; default WebView context menu prevented",
+  );
   await page
     .getByRole("navigation")
     .getByRole("button", { name: "设置", exact: true })

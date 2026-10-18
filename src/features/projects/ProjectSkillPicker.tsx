@@ -55,7 +55,9 @@ export function ProjectSkillPicker({
   const revision = versions.find((r) => r.id === revisionId);
   return (
     <Modal
-      title={t("为 {project} 添加技能", { project: project.name })}
+      title={t("为 {project} 添加技能", {
+        project: project.displayName || project.name,
+      })}
       busy={busy}
       close={close}
       wide

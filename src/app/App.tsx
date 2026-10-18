@@ -32,6 +32,7 @@ import type {
   Locale,
 } from "../lib/ipc/types";
 import { LibraryView } from "../features/library/LibraryView";
+import { BatchInstallDialog } from "../features/library/BatchInstallDialog";
 import { ProjectsView } from "../features/projects/ProjectsView";
 import { ProjectSkillPicker } from "../features/projects/ProjectSkillPicker";
 import { SourcesView } from "../features/sources/SourcesView";
@@ -48,6 +49,12 @@ import "./fonts.css";
 import "./theme.css";
 type Page = "library" | "projects" | "sources" | "settings";
 type Dialog =
+  | {
+      type: "remove-items";
+      kind: "skills" | "projects";
+      items: (Skill | Project)[];
+    }
+  | { type: "batch-install"; skills: Skill[] }
   | {
       type: "import";
       value: PreparedImport;
@@ -344,6 +351,26 @@ export default function App() {
     });
     if (result) setNotice(t("技能库位置已更新。"));
   }
+  async function removeItems() {
+    if (dialog?.type !== "remove-items") return;
+    const { kind, items } = dialog;
+    const result = await run(t("删除所选条目"), async () => {
+      await call(
+        kind === "skills" ? "remove_library_skills" : "remove_projects",
+        kind === "skills"
+          ? { skillIds: items.map((item) => item.id) }
+          : { projectIds: items.map((item) => item.id) },
+      );
+      setDialog(null);
+      if (
+        kind === "projects" &&
+        items.some((item) => item.id === selectedProjectId)
+      )
+        setSelectedProjectId("");
+      return reload();
+    });
+    if (result) setNotice(t("已删除 {count} 项。", { count: items.length }));
+  }
   async function saveAppearance(appearance: Appearance) {
     const result = await run(t("保存个性化设置"), () =>
       call<Appearance>("set_appearance", { appearance }),
@@ -477,6 +504,12 @@ export default function App() {
                 run={run}
                 importLocal={() => void importLocal()}
                 install={beginInstall}
+                installSkills={(skills) =>
+                  setDialog({ type: "batch-install", skills })
+                }
+                remove={(items) =>
+                  setDialog({ type: "remove-items", kind: "skills", items })
+                }
                 checkUpdate={(skill) => {
                   setSourceSeed(skill);
                   setPage("sources");
@@ -489,6 +522,17 @@ export default function App() {
                   .map((d) => d.id + d.revisionId)
                   .join(":")}
                 projects={snapshot.projects}
+                remove={(items) =>
+                  setDialog({ type: "remove-items", kind: "projects", items })
+                }
+                updated={(project) =>
+                  setSnapshot((current) => ({
+                    ...current,
+                    projects: current.projects.map((p) =>
+                      p.id === project.id ? project : p,
+                    ),
+                  }))
+                }
                 selectedProjectId={selectedProjectId}
                 selectProject={setSelectedProjectId}
                 addSkills={(project) =>
@@ -573,6 +617,56 @@ export default function App() {
             )}
           </main>
         </div>
+        {dialog?.type === "batch-install" && (
+          <BatchInstallDialog
+            skills={dialog.skills}
+            projects={snapshot.projects}
+            busy={!!busy}
+            run={run}
+            refresh={reload}
+            close={() => setDialog(null)}
+          />
+        )}
+        {dialog?.type === "remove-items" && (
+          <Modal
+            title={
+              dialog.kind === "skills"
+                ? t("删除所选技能？")
+                : t("删除所选项目？")
+            }
+            busy={!!busy}
+            close={() => setDialog(null)}
+          >
+            <div className="modal-body">
+              <p>
+                {dialog.kind === "skills"
+                  ? t(
+                      "技能将从库列表移除，版本快照和已安装的项目技能保留。重新导入同一来源可以恢复；此操作不释放快照占用的磁盘空间。",
+                    )
+                  : t(
+                      "项目将从管理列表移除，项目文件和已安装技能保留。重新添加同一项目文件夹可以恢复备注和管理记录。",
+                    )}
+              </p>
+              <ul className="batch-items">
+                {dialog.items.map((item) => (
+                  <li key={item.id}>{item.displayName || item.name}</li>
+                ))}
+              </ul>
+            </div>
+            <footer className="modal-footer">
+              <button disabled={!!busy} onClick={() => setDialog(null)}>
+                {t("取消")}
+              </button>
+              <button
+                className="danger-quiet"
+                disabled={!!busy}
+                onClick={() => void removeItems()}
+              >
+                {t("确认删除（{count}）", { count: dialog.items.length })}
+              </button>
+            </footer>
+          </Modal>
+        )}
         {dialog?.type === "project-add" && (
           <ProjectSkillPicker
             repositoryHistory={snapshot.repositoryHistory}
@@ -674,7 +768,7 @@ export default function App() {
                     >
                       {snapshot.projects.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} · {p.path}
+                          {p.displayName || p.name} · {p.path}
                         </option>
                       ))}
                     </select>

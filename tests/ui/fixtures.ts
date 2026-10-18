@@ -29,6 +29,9 @@ type FixtureOptions = {
   appearanceSaveFailure?: boolean;
   locale?: Locale;
   localeSaveFailure?: boolean;
+  removalFailure?: boolean;
+  deploymentFailureSkill?: string;
+  duplicateSkillName?: boolean;
 };
 
 declare global {
@@ -124,6 +127,12 @@ export async function installBackendFixture(
         options.repositoryHistory ||
         [];
       const skills = options.emptyLibrary ? [] : [rust, security];
+      if (options.duplicateSkillName) security.name = rust.name;
+      const removedSkills = new Set<string>();
+      const removedProjects = new Set<string>();
+      let removalFailed = false;
+      let deploymentFailed = false;
+      let planNumber = 0;
       const projects: Project[] = [
         {
           id: "project-askills",
@@ -259,8 +268,8 @@ export async function installBackendFixture(
             switch (command) {
               case "get_snapshot": {
                 const snapshot: Snapshot = {
-                  skills,
-                  projects,
+                  skills: skills.filter((s) => !removedSkills.has(s.id)),
+                  projects: projects.filter((p) => !removedProjects.has(p.id)),
                   deployments,
                   libraryRoot: "D:/Example/Askills Library",
                   recovery: [],
@@ -353,6 +362,30 @@ export async function installBackendFixture(
                 skill.displayName = String(args.displayName).trim() || null;
                 return structuredClone(skill);
               }
+              case "set_project_display_name": {
+                const project = projects.find((p) => p.id === args.projectId);
+                if (!project) throw error("ProjectNotFound", "项目不存在");
+                project.displayName = String(args.displayName).trim() || null;
+                return structuredClone(project);
+              }
+              case "remove_library_skills":
+              case "remove_projects": {
+                if (options.removalFailure && !removalFailed) {
+                  removalFailed = true;
+                  throw error("WriteFailed", "模拟删除保存失败");
+                }
+                const ids = (
+                  command === "remove_library_skills"
+                    ? args.skillIds
+                    : args.projectIds
+                ) as string[];
+                const target =
+                  command === "remove_library_skills"
+                    ? removedSkills
+                    : removedProjects;
+                for (const id of ids) target.add(id);
+                return null;
+              }
               case "pick_directory": {
                 const id = `selection-${++selectionNumber}`;
                 selected.set(id, String(args.purpose));
@@ -412,7 +445,7 @@ export async function installBackendFixture(
                 if (!skill || !project)
                   throw error("InvalidPlan", "未知项目或技能版本");
                 const plan: DeploymentPlan = {
-                  id: "plan-one",
+                  id: `plan-${++planNumber}`,
                   projectId: String(args.projectId),
                   revisionId: String(args.revisionId),
                   skillId: skill.id,
@@ -433,10 +466,17 @@ export async function installBackendFixture(
                 const plan = plans.get(String(args.planId));
                 if (!plan || plan.conflict)
                   throw error("UnexpectedMutation", "未确认或冲突计划");
+                if (
+                  plan.skillId === options.deploymentFailureSkill &&
+                  !deploymentFailed
+                ) {
+                  deploymentFailed = true;
+                  throw error("WriteFailed", "模拟安装失败");
+                }
                 plans.delete(plan.id);
                 const item: Deployment = {
                   ...plan,
-                  id: "deployment-one",
+                  id: `deployment-${plan.id}`,
                   status: "installed",
                 };
                 deployments.push(item);

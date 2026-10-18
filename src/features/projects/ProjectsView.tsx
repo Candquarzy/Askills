@@ -7,6 +7,9 @@ import {
   RefreshCw,
   RotateCcw,
   Unplug,
+  Pencil,
+  Trash2,
+  ListChecks,
 } from "lucide-react";
 import { call, shortHash } from "../../lib/ipc/client";
 import type {
@@ -16,6 +19,12 @@ import type {
   RunOperation,
 } from "../../lib/ipc/types";
 import { EmptyState } from "../../components/EmptyState";
+import { ContextMenu, useContextMenu } from "../../components/ContextMenu";
+import {
+  SelectionToolbar,
+  useSelection,
+} from "../../components/SelectionToolbar";
+import { Modal } from "../../components/Modal";
 const statusLabels: Record<string, string> = {
   installed: "已启用",
   MissingEntry: "安装入口已丢失",
@@ -46,6 +55,8 @@ export function ProjectsView({
   addSkills,
   selectedProjectId,
   selectProject,
+  remove,
+  updated,
 }: {
   projects: Project[];
   deployments: Deployment[];
@@ -60,10 +71,32 @@ export function ProjectsView({
   addSkills: (project: Project) => void;
   selectedProjectId: string;
   selectProject: (id: string) => void;
+  remove: (projects: Project[]) => void;
+  updated: (project: Project) => void;
 }) {
   const { t } = useI18n();
   const selected = projects.find((p) => p.id === selectedProjectId) || null;
   const [entries, setEntries] = useState<DetectedSkill[] | null>(null);
+  const menu = useContextMenu<Project>();
+  const selection = useSelection();
+  const chosen = projects.filter((project) =>
+    selection.ids.includes(project.id),
+  );
+  const [renaming, setRenaming] = useState<Project | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  async function saveName(displayName: string) {
+    if (!renaming) return;
+    const value = await run(t("保存项目备注名"), () =>
+      call<Project>("set_project_display_name", {
+        projectId: renaming.id,
+        displayName,
+      }),
+    );
+    if (value) {
+      updated(value);
+      setRenaming(null);
+    }
+  }
   async function scan(project: Project) {
     selectProject(project.id);
     setEntries(null);
@@ -97,31 +130,79 @@ export function ProjectsView({
           </button>
         </div>
       </header>
+      {selection.active && (
+        <SelectionToolbar
+          count={chosen.length}
+          busy={busy}
+          selectAll={() => selection.select(projects.map((p) => p.id))}
+          clear={() => selection.select([])}
+          exit={selection.exit}
+        >
+          <button
+            className="danger-quiet"
+            disabled={busy || !chosen.length}
+            onClick={() => remove(chosen)}
+          >
+            <Trash2 size={16} />
+            {t("删除所选")}
+          </button>
+        </SelectionToolbar>
+      )}
       <div className="projects-layout">
         <section className="project-list" aria-label={t("项目列表")}>
           {projects.map((project) => (
-            <button
-              disabled={busy}
+            <div
               key={project.id}
-              className={
-                selected?.id === project.id
-                  ? "project-card selected"
-                  : "project-card"
-              }
-              onClick={() => void scan(project)}
+              className="selectable-item"
+              {...menu.bind(project, busy)}
             >
-              <FolderGit2 size={22} />
-              <span>
-                <strong>{project.name}</strong>
-                <small className="path">{project.path}</small>
-                <small>
-                  {t("{count} 个受管理技能", {
-                    count: deployments.filter((d) => d.projectId === project.id)
-                      .length,
+              {selection.active && (
+                <input
+                  type="checkbox"
+                  disabled={busy}
+                  aria-label={t("选择 {name}", {
+                    name: project.displayName || project.name,
                   })}
-                </small>
-              </span>
-            </button>
+                  checked={selection.ids.includes(project.id)}
+                  onChange={() => selection.toggle(project.id)}
+                />
+              )}
+              <button
+                disabled={busy}
+                className={
+                  (
+                    selection.active
+                      ? selection.ids.includes(project.id)
+                      : selected?.id === project.id
+                  )
+                    ? "project-card selected"
+                    : "project-card"
+                }
+                aria-pressed={
+                  selection.active
+                    ? selection.ids.includes(project.id)
+                    : undefined
+                }
+                onClick={() =>
+                  selection.active
+                    ? selection.toggle(project.id)
+                    : void scan(project)
+                }
+              >
+                <FolderGit2 size={22} />
+                <span>
+                  <strong>{project.displayName || project.name}</strong>
+                  <small className="path">{project.path}</small>
+                  <small>
+                    {t("{count} 个受管理技能", {
+                      count: deployments.filter(
+                        (d) => d.projectId === project.id,
+                      ).length,
+                    })}
+                  </small>
+                </span>
+              </button>
+            </div>
           ))}
           {!projects.length && (
             <EmptyState
@@ -135,7 +216,7 @@ export function ProjectsView({
         {selected ? (
           <section className="project-detail">
             <div className="detail-heading">
-              <h2>{selected.name}</h2>
+              <h2>{selected.displayName || selected.name}</h2>
               <button
                 className="primary"
                 disabled={busy}
@@ -241,6 +322,89 @@ export function ProjectsView({
           )
         )}
       </div>
+      {menu.anchor && !busy && (
+        <ContextMenu
+          anchor={menu.anchor}
+          label={t("项目操作")}
+          close={menu.close}
+          actions={[
+            {
+              label: t("备注项目名"),
+              icon: <Pencil size={16} />,
+              action: () => {
+                setNameDraft(menu.anchor!.item.displayName || "");
+                setRenaming(menu.anchor!.item);
+              },
+            },
+            {
+              label: t("添加技能"),
+              icon: <FolderPlus size={16} />,
+              action: () => {
+                selectProject(menu.anchor!.item.id);
+                setEntries(null);
+                addSkills(menu.anchor!.item);
+              },
+            },
+            {
+              label: t("多选"),
+              icon: <ListChecks size={16} />,
+              action: () => selection.enter(menu.anchor!.item.id),
+            },
+            {
+              label: t("删除"),
+              icon: <Trash2 size={16} />,
+              danger: true,
+              action: () => remove([menu.anchor!.item]),
+            },
+          ]}
+        />
+      )}
+      {renaming && (
+        <Modal
+          title={t("备注项目名")}
+          busy={busy}
+          close={() => setRenaming(null)}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveName(nameDraft);
+            }}
+          >
+            <div className="modal-body">
+              <label className="field">
+                {t("显示名称")}
+                <input
+                  autoFocus
+                  maxLength={80}
+                  disabled={busy}
+                  value={nameDraft}
+                  placeholder={renaming.name}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                />
+              </label>
+              <p className="path">{renaming.path}</p>
+              <p className="footnote">
+                {t(
+                  "备注仅用于 Askills 显示，不改变项目文件夹名称或路径。留空可恢复原名。",
+                )}
+              </p>
+            </div>
+            <footer className="modal-footer">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void saveName("")}
+              >
+                {t("恢复原名")}
+              </button>
+              <button type="submit" className="primary" disabled={busy}>
+                {t("保存名称")}
+              </button>
+            </footer>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }

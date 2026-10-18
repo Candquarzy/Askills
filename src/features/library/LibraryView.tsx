@@ -8,6 +8,8 @@ import {
   Search,
   RefreshCw,
   Pencil,
+  Trash2,
+  ListChecks,
 } from "lucide-react";
 import { call, shortHash } from "../../lib/ipc/client";
 import type {
@@ -20,6 +22,11 @@ import type {
 import { Markdown } from "../../components/Markdown";
 import { EmptyState } from "../../components/EmptyState";
 import { Modal } from "../../components/Modal";
+import { ContextMenu, useContextMenu } from "../../components/ContextMenu";
+import {
+  SelectionToolbar,
+  useSelection,
+} from "../../components/SelectionToolbar";
 export function LibraryView({
   skills,
   busy,
@@ -28,6 +35,8 @@ export function LibraryView({
   install,
   checkUpdate,
   updated,
+  remove,
+  installSkills,
 }: {
   skills: Skill[];
   busy: boolean;
@@ -36,6 +45,8 @@ export function LibraryView({
   install: (revision: Revision) => void;
   checkUpdate: (skill: Skill) => void;
   updated: (skill: Skill) => void;
+  remove: (skills: Skill[]) => void;
+  installSkills: (skills: Skill[]) => void;
 }) {
   const { t, locale } = useI18n();
   const [query, setQuery] = useState("");
@@ -43,8 +54,15 @@ export function LibraryView({
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [diff, setDiff] = useState<RevisionDiff | null>(null);
   const [raw, setRaw] = useState(false);
-  const [renaming, setRenaming] = useState(false);
+  const [renaming, setRenaming] = useState<Skill | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const menu = useContextMenu<Skill>();
+  const selection = useSelection();
+  const chosen = skills.filter((skill) => selection.ids.includes(skill.id));
+  function rename(skill: Skill) {
+    setNameDraft(skill.displayName || "");
+    setRenaming(skill);
+  }
   const currentSkill = skills.find((s) => s.id === doc?.skill.id) || doc?.skill;
   const filtered = skills.filter((s) =>
     [s.name, s.displayName || "", s.description, s.source.url || ""]
@@ -79,16 +97,16 @@ export function LibraryView({
     if (result) setDiff(result);
   }
   async function saveName(displayName: string) {
-    if (!currentSkill) return;
+    if (!renaming) return;
     const result = await run(t("保存显示名称"), () =>
       call<Skill>("set_skill_display_name", {
-        skillId: currentSkill.id,
+        skillId: renaming.id,
         displayName,
       }),
     );
     if (result) {
       updated(result);
-      setRenaming(false);
+      setRenaming(null);
     }
   }
   return (
@@ -116,46 +134,105 @@ export function LibraryView({
             aria-label={t("搜索技能")}
             placeholder={t("搜索名称、描述或来源…")}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              selection.select([]);
+            }}
           />
         </label>
         <span className="muted">
           {t("{count} 个技能", { count: filtered.length })}
         </span>
       </div>
+      {selection.active && (
+        <SelectionToolbar
+          count={chosen.length}
+          busy={busy}
+          selectAll={() => selection.select(filtered.map((s) => s.id))}
+          clear={() => selection.select([])}
+          exit={selection.exit}
+        >
+          <button
+            disabled={busy || !chosen.length}
+            onClick={() => installSkills(chosen)}
+          >
+            <FolderPlus size={16} />
+            {t("添加到项目")}
+          </button>
+          <button
+            className="danger-quiet"
+            disabled={busy || !chosen.length}
+            onClick={() => remove(chosen)}
+          >
+            <Trash2 size={16} />
+            {t("删除所选")}
+          </button>
+        </SelectionToolbar>
+      )}
       <div className={doc ? "library-layout with-detail" : "library-layout"}>
         <section className="skill-list" aria-label={t("技能列表")}>
           {filtered.map((skill) => (
-            <button
+            <div
               key={skill.id}
-              disabled={busy}
-              className={
-                doc?.skill.id === skill.id
-                  ? "skill-card selected"
-                  : "skill-card"
-              }
-              onClick={() => void open(skill)}
+              className="selectable-item"
+              {...menu.bind(skill, busy)}
             >
-              <span className="skill-symbol">
-                <BookOpen size={20} />
-              </span>
-              <span className="skill-card-content">
-                <strong>{skill.displayName || skill.name}</strong>
-                {skill.displayName && (
-                  <small className="path">{skill.name}</small>
-                )}
-                <span className="skill-description">{skill.description}</span>
-                <span className="skill-meta">
-                  <span>
-                    {skill.source.kind === "github" ? "GitHub" : t("本地导入")}
-                  </span>
-                  <span>{skill.license || t("许可未声明")}</span>
-                  <span>
-                    {t("{count} 个版本", { count: skill.revisionCount })}
+              {selection.active && (
+                <input
+                  type="checkbox"
+                  disabled={busy}
+                  aria-label={t("选择 {name}", {
+                    name: skill.displayName || skill.name,
+                  })}
+                  checked={selection.ids.includes(skill.id)}
+                  onChange={() => selection.toggle(skill.id)}
+                />
+              )}
+              <button
+                disabled={busy}
+                className={
+                  (
+                    selection.active
+                      ? selection.ids.includes(skill.id)
+                      : doc?.skill.id === skill.id
+                  )
+                    ? "skill-card selected"
+                    : "skill-card"
+                }
+                aria-pressed={
+                  selection.active
+                    ? selection.ids.includes(skill.id)
+                    : undefined
+                }
+                onClick={() =>
+                  selection.active
+                    ? selection.toggle(skill.id)
+                    : void open(skill)
+                }
+              >
+                <span className="skill-symbol">
+                  <BookOpen size={20} />
+                </span>
+                <span className="skill-card-content">
+                  <strong>{skill.displayName || skill.name}</strong>
+                  {skill.displayName && (
+                    <small className="path">{skill.name}</small>
+                  )}
+                  <span className="skill-description">{skill.description}</span>
+                  <span className="skill-meta">
+                    <span>
+                      {skill.source.kind === "github"
+                        ? "GitHub"
+                        : t("本地导入")}
+                    </span>
+                    <span>{skill.license || t("许可未声明")}</span>
+                    <span>
+                      {t("{count} 个版本", { count: skill.revisionCount })}
+                    </span>
                   </span>
                 </span>
-              </span>
-            </button>
+              </button>
+            </div>
           ))}
           {!filtered.length && (
             <EmptyState
@@ -187,8 +264,7 @@ export function LibraryView({
                 className="text-button"
                 disabled={busy}
                 onClick={() => {
-                  setNameDraft(currentSkill?.displayName || "");
-                  setRenaming(true);
+                  if (currentSkill) rename(currentSkill);
                 }}
               >
                 <Pencil size={14} />
@@ -275,11 +351,41 @@ export function LibraryView({
           </aside>
         )}
       </div>
+      {menu.anchor && !busy && (
+        <ContextMenu
+          anchor={menu.anchor}
+          label={t("技能操作")}
+          close={menu.close}
+          actions={[
+            {
+              label: t("重命名"),
+              icon: <Pencil size={16} />,
+              action: () => rename(menu.anchor!.item),
+            },
+            {
+              label: t("添加到项目"),
+              icon: <FolderPlus size={16} />,
+              action: () => installSkills([menu.anchor!.item]),
+            },
+            {
+              label: t("多选"),
+              icon: <ListChecks size={16} />,
+              action: () => selection.enter(menu.anchor!.item.id),
+            },
+            {
+              label: t("删除"),
+              icon: <Trash2 size={16} />,
+              danger: true,
+              action: () => remove([menu.anchor!.item]),
+            },
+          ]}
+        />
+      )}
       {renaming && (
         <Modal
           title={t("编辑技能显示名称")}
           busy={busy}
-          close={() => setRenaming(false)}
+          close={() => setRenaming(null)}
         >
           <form
             onSubmit={(e) => {
@@ -295,7 +401,7 @@ export function LibraryView({
                   maxLength={80}
                   disabled={busy}
                   value={nameDraft}
-                  placeholder={doc?.skill.name}
+                  placeholder={renaming.name}
                   onChange={(e) => setNameDraft(e.target.value)}
                 />
               </label>
