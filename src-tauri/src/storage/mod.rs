@@ -549,6 +549,7 @@ impl Store {
             Skill {
                 id: Uuid::new_v4().to_string(),
                 name: preview.name.clone(),
+                display_name: None,
                 description: preview.description.clone(),
                 license: preview.license.clone(),
                 latest_revision_id: String::new(),
@@ -651,6 +652,32 @@ impl Store {
         transaction.execute("INSERT OR IGNORE INTO revisions(id,skill_id,hash,source_version,json) VALUES(?1,?2,?3,?4,?5)",
             params![revision.id, skill.id, revision.hash, source_version, serde_json::to_string(&revision)?])?;
         transaction.commit()?;
+        Ok(skill)
+    }
+
+    pub fn set_display_name(&self, id: &str, name: &str) -> Result<Skill> {
+        self.verify_library()?;
+        let name = name.trim();
+        if name.chars().count() > 80 || name.chars().any(char::is_control) {
+            return Err(AppError::new(
+                "InvalidDisplayName",
+                "显示名称最多 80 个字符，且不能包含换行或控制字符",
+            ));
+        }
+        let mut skill = self.skill(id)?;
+        skill.display_name = if name.is_empty() {
+            None
+        } else {
+            Some(name.to_owned())
+        };
+        let revisions = self.list_revisions(id)?;
+        // Follow the same manifest-first recovery protocol as imports. This changes
+        // metadata only; revision bytes, source identity and deployment names stay fixed.
+        self.write_manifest(&skill, &revisions)?;
+        self.conn.execute(
+            "UPDATE skills SET json=?2 WHERE id=?1",
+            params![id, serde_json::to_string(&skill)?],
+        )?;
         Ok(skill)
     }
 
@@ -862,6 +889,76 @@ mod tests {
         fs::create_dir(path.join("assets")).unwrap();
         fs::write(path.join("assets/data.txt"), "原文附件").unwrap();
         path
+    }
+
+    #[test]
+    fn display_name_survives_import_and_manifest_recovery_without_changing_snapshots() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = fixture(temp.path());
+        let cancel = AtomicBool::new(false);
+        let data = temp.path().join("app");
+        let store = Store::open(&data).unwrap();
+        let skill = store.import_local(&source, None, None, &cancel).unwrap();
+        let revision = store.revision(&skill.latest_revision_id).unwrap();
+        let renamed = store
+            .set_display_name(&skill.id, "  我的 Rust 技能  ")
+            .unwrap();
+        assert_eq!(renamed.name, "sample");
+        assert_eq!(renamed.display_name.as_deref(), Some("我的 Rust 技能"));
+        assert_eq!(
+            hash_tree(Path::new(&revision.path), &cancel).unwrap(),
+            revision.hash
+        );
+        assert_eq!(
+            store
+                .import_local(&source, None, None, &cancel)
+                .unwrap()
+                .display_name,
+            renamed.display_name
+        );
+        drop(store);
+        fs::remove_file(data.join("askills.db")).unwrap();
+        let restored = Store::open(&data).unwrap();
+        assert_eq!(
+            restored.skill(&skill.id).unwrap().display_name,
+            renamed.display_name
+        );
+        assert_eq!(
+            restored
+                .set_display_name(&skill.id, " ")
+                .unwrap()
+                .display_name,
+            None
+        );
+        assert_eq!(
+            restored.skill(&skill.id).unwrap().latest_revision_id,
+            revision.id
+        );
+    }
+
+    #[test]
+    fn invalid_display_names_are_rejected_and_old_skill_json_remains_readable() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = fixture(temp.path());
+        let store = Store::open(&temp.path().join("app")).unwrap();
+        let skill = store
+            .import_local(&source, None, None, &AtomicBool::new(false))
+            .unwrap();
+        for bad in ["a\nb".to_string(), "a".repeat(81)] {
+            assert_eq!(
+                store.set_display_name(&skill.id, &bad).unwrap_err().code,
+                "InvalidDisplayName"
+            );
+        }
+        assert!(store.skill(&skill.id).unwrap().display_name.is_none());
+        let mut legacy = serde_json::to_value(&skill).unwrap();
+        legacy.as_object_mut().unwrap().remove("displayName");
+        assert!(
+            serde_json::from_value::<Skill>(legacy)
+                .unwrap()
+                .display_name
+                .is_none()
+        );
     }
 
     #[test]

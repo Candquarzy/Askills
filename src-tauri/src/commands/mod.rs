@@ -478,6 +478,17 @@ pub fn cancel_operation(state: State<'_, Arc<Runtime>>) {
     state.cancel.store(true, Ordering::Release);
 }
 #[tauri::command]
+pub async fn set_skill_display_name(
+    state: State<'_, Arc<Runtime>>,
+    skill_id: String,
+    display_name: String,
+) -> Result<Skill> {
+    work(state.inner().clone(), move |w, _| {
+        w.store.set_display_name(&skill_id, &display_name)
+    })
+    .await
+}
+#[tauri::command]
 pub async fn get_revision_diff(
     state: State<'_, Arc<Runtime>>,
     before_id: String,

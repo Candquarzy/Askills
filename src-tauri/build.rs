@@ -3,6 +3,7 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "get_app_info",
             "get_snapshot",
+            "set_skill_display_name",
             "pick_directory",
             "prepare_import",
             "finish_import",

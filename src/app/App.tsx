@@ -362,6 +362,14 @@ export default function App() {
               <LibraryView
                 key={snapshot.skills.map((s) => s.latestRevisionId).join(":")}
                 skills={snapshot.skills}
+                updated={(skill) =>
+                  setSnapshot((current) => ({
+                    ...current,
+                    skills: current.skills.map((s) =>
+                      s.id === skill.id ? skill : s,
+                    ),
+                  }))
+                }
                 busy={disabled}
                 run={run}
                 importLocal={() => void importLocal()}

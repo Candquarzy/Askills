@@ -6,6 +6,7 @@ import {
   History,
   Search,
   RefreshCw,
+  Pencil,
 } from "lucide-react";
 import { call, shortHash } from "../../lib/ipc/client";
 import type {
@@ -26,6 +27,7 @@ export function LibraryView({
   importLocal,
   install,
   checkUpdate,
+  updated,
 }: {
   skills: Skill[];
   busy: boolean;
@@ -33,14 +35,18 @@ export function LibraryView({
   importLocal: () => void;
   install: (revision: Revision) => void;
   checkUpdate: (skill: Skill) => void;
+  updated: (skill: Skill) => void;
 }) {
   const [query, setQuery] = useState("");
   const [doc, setDoc] = useState<SkillDocument | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [diff, setDiff] = useState<RevisionDiff | null>(null);
   const [raw, setRaw] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const currentSkill = skills.find((s) => s.id === doc?.skill.id) || doc?.skill;
   const filtered = skills.filter((s) =>
-    [s.name, s.description, s.source.url || ""]
+    [s.name, s.displayName || "", s.description, s.source.url || ""]
       .join(" ")
       .toLocaleLowerCase()
       .includes(query.trim().toLocaleLowerCase()),
@@ -70,6 +76,19 @@ export function LibraryView({
       call<RevisionDiff>("get_revision_diff", { beforeId, afterId: latest }),
     );
     if (result) setDiff(result);
+  }
+  async function saveName(displayName: string) {
+    if (!currentSkill) return;
+    const result = await run("保存显示名称", () =>
+      call<Skill>("set_skill_display_name", {
+        skillId: currentSkill.id,
+        displayName,
+      }),
+    );
+    if (result) {
+      updated(result);
+      setRenaming(false);
+    }
   }
   return (
     <>
@@ -114,7 +133,10 @@ export function LibraryView({
                 <BookOpen size={20} />
               </span>
               <span className="skill-card-content">
-                <strong>{skill.name}</strong>
+                <strong>{skill.displayName || skill.name}</strong>
+                {skill.displayName && (
+                  <small className="path">{skill.name}</small>
+                )}
                 <span className="skill-description">{skill.description}</span>
                 <span className="skill-meta">
                   <span>
@@ -140,9 +162,22 @@ export function LibraryView({
         {doc && (
           <aside className="detail-panel">
             <div className="detail-heading">
-              <h2>{doc.skill.name}</h2>
+              <h2>{currentSkill?.displayName || doc.skill.name}</h2>
               <button className="text-button" onClick={() => setDoc(null)}>
                 收起
+              </button>
+            </div>
+            <div className="button-row">
+              <span className="path">原始名称：{doc.skill.name}</span>
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() => {
+                  setNameDraft(currentSkill?.displayName || "");
+                  setRenaming(true);
+                }}
+              >
+                <Pencil size={14} /> 编辑显示名称
               </button>
             </div>
             <p className="muted">{doc.skill.description}</p>
@@ -218,6 +253,50 @@ export function LibraryView({
           </aside>
         )}
       </div>
+      {renaming && (
+        <Modal
+          title="编辑技能显示名称"
+          busy={busy}
+          close={() => setRenaming(false)}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveName(nameDraft);
+            }}
+          >
+            <div className="modal-body">
+              <label className="field">
+                显示名称
+                <input
+                  autoFocus
+                  maxLength={80}
+                  disabled={busy}
+                  value={nameDraft}
+                  placeholder={doc?.skill.name}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                />
+              </label>
+              <p className="footnote">
+                仅改变 Askills 中的显示，原始名称、SKILL.md
+                和项目安装路径保持不变。留空可恢复原名。
+              </p>
+            </div>
+            <footer className="modal-footer">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void saveName("")}
+              >
+                恢复原名
+              </button>
+              <button className="primary" disabled={busy} type="submit">
+                保存名称
+              </button>
+            </footer>
+          </form>
+        </Modal>
+      )}
       {diff && (
         <Modal
           title="版本差异 · 较早版本 → 最新版本"

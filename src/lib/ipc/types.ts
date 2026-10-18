@@ -9,6 +9,7 @@ export type Source = {
 export type Skill = {
   id: string;
   name: string;
+  displayName: string | null;
   description: string;
   license: string | null;
   latestRevisionId: string;

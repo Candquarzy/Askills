@@ -42,6 +42,7 @@ const localSource = {
 const rust: Skill = {
   id: "skill-rust",
   name: "rust-async-patterns",
+  displayName: null,
   description: "掌握 Rust 异步任务、取消和错误处理，构建可靠的并发程序。",
   license: "MIT",
   latestRevisionId: "revision-rust-1",
@@ -190,6 +191,12 @@ export async function installBackendFixture(
                     .filter((item) => item.skillId === args.skillId)
                     .reverse(),
                 );
+              case "set_skill_display_name": {
+                const skill = skills.find((s) => s.id === args.skillId);
+                if (!skill) throw error("SkillNotFound", "技能不存在");
+                skill.displayName = String(args.displayName).trim() || null;
+                return structuredClone(skill);
+              }
               case "pick_directory": {
                 const id = `selection-${++selectionNumber}`;
                 selected.set(id, String(args.purpose));
@@ -214,6 +221,7 @@ export async function installBackendFixture(
                 const nextNumber = current ? current.revisionCount + 1 : 1;
                 const next = {
                   ...rust,
+                  displayName: current?.displayName || null,
                   revisionCount: nextNumber,
                   latestRevisionId: `revision-rust-${nextNumber}`,
                 };

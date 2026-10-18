@@ -67,6 +67,8 @@ pub struct SkillSource {
 pub struct Skill {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
     pub description: String,
     pub license: Option<String>,
     pub latest_revision_id: String,

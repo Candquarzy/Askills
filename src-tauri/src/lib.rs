@@ -35,6 +35,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             commands::get_snapshot,
+            commands::set_skill_display_name,
             commands::pick_directory,
             commands::prepare_import,
             commands::finish_import,
