@@ -31,3 +31,12 @@
 - AppManifest 显式注册命令，主窗口仅获得所需命令权限，保留原启动页的只读通信接口。
 - 单独执行 `cargo test --manifest-path src-tauri/Cargo.toml --locked --lib commands::tests`：**4/4 通过**。
 - 验证目录用途/过期、预览后源变更、下载暂存释放、并发 Busy 与取消后恢复；原生实测同时确认未授权目录 token 和文件插件调用被拒绝。
+
+## 2026-10-18 · 中文界面与流程集成
+
+- 技能库、项目、GitHub 来源和设置界面；导入/部署确认、版本阅读与比较、错误重试和弹窗内取消。
+- 新版本导入后清除旧详情；批量登记部分成功时不重放已消费的目录授权；错误在当前弹窗内可见。
+- `pnpm test:ui`：**7/7 通过**，真实 Edge 运行 React，IPC 使用严格 fixture。
+- TypeScript、前端生产构建、完整 Rust Clippy、Windows 调试构建通过。
+- `pnpm test:native --github`：真实 Tauri/WebView2、原生 IPC、权限拒绝、GitHub 候选/下载/确认导入/Markdown 阅读通过，无页面异常。测试使用独立数据目录，结束后清理。
+- 模块组合后的完整 Rust 回归：**54 通过，1 个显式联网测试默认跳过**。
