@@ -1,3 +1,27 @@
 fn main() {
-    tauri_build::build()
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
+        tauri_build::AppManifest::new().commands(&[
+            "get_app_info",
+            "get_snapshot",
+            "pick_directory",
+            "prepare_import",
+            "finish_import",
+            "discard_import",
+            "register_project",
+            "discover_projects",
+            "scan_project",
+            "get_document",
+            "get_revisions",
+            "preview_deployment",
+            "apply_deployment",
+            "remove_deployment",
+            "rollback_deployment",
+            "resolve_github",
+            "prepare_github",
+            "set_library_root",
+            "cancel_operation",
+            "get_revision_diff",
+        ]),
+    ))
+    .expect("failed to generate Askills application permissions");
 }

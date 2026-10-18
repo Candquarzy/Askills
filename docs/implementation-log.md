@@ -24,3 +24,10 @@
 - 限制下载规模，拒绝链接、子模块、路径穿越、大小写冲突和不完整仓库树。
 - 单独执行 `cargo test --manifest-path src-tauri/Cargo.toml --locked --lib sources::github`：**15/15 离线测试通过**；显式联网测试默认跳过。
 - 真实 GitHub 下载在另行构建的原生集成测试中通过，使用本仓库固定提交 `e34a61764fec38508c4275f5af1e1d8bfb99f6c4` 的 `tauri-setup`，未写入真实用户技能库。
+
+## 2026-10-18 · Tauri IPC 与原生目录授权
+
+- 后端原生目录选择、用途绑定 token、预览与候选暂存、单任务调度、独立取消标记及类型化错误。
+- AppManifest 显式注册命令，主窗口仅获得所需命令权限，保留原启动页的只读通信接口。
+- 单独执行 `cargo test --manifest-path src-tauri/Cargo.toml --locked --lib commands::tests`：**4/4 通过**。
+- 验证目录用途/过期、预览后源变更、下载暂存释放、并发 Busy 与取消后恢复；原生实测同时确认未授权目录 token 和文件插件调用被拒绝。
