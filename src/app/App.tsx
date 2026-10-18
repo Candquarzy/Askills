@@ -8,7 +8,6 @@ import {
   Settings2,
   RefreshCw,
   ArrowRight,
-  FolderOpen,
 } from "lucide-react";
 import {
   call,
@@ -41,6 +40,7 @@ import { Markdown } from "../components/Markdown";
 import { FontNotice } from "../components/FontNotice";
 import { AppearanceSettings } from "../features/settings/AppearanceSettings";
 import { LanguageSettings } from "../features/settings/LanguageSettings";
+import { LibrarySettings } from "../features/settings/LibrarySettings";
 import { DEFAULT_APPEARANCE, useAppearance } from "./appearance";
 import { OperationContext, type OperationProgress } from "./OperationContext";
 import { OperationToast } from "../components/OperationToast";
@@ -113,12 +113,14 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const initialized = useRef(false);
   const inFlight = useRef(false);
+  const operationSequence = useRef(0);
   const cancelRequested = useRef(false);
   const desktop = isTauri();
   const disabled = !!busy || !desktop || !ready;
   const run: RunOperation = async (label, work) => {
     if (inFlight.current) return;
     inFlight.current = true;
+    operationSequence.current++;
     cancelRequested.current = false;
     setProgress(null);
     setBusy(label);
@@ -342,15 +344,6 @@ export default function App() {
       setNotice(t("项目变更已完成，技能库中的版本仍然保留。"));
     }
   }
-  async function changeLibrary() {
-    const result = await run(t("设置技能库位置"), async () => {
-      const selection = await choose("library");
-      if (!selection) return null;
-      await call("set_library_root", { selectionId: selection.id });
-      return reload();
-    });
-    if (result) setNotice(t("技能库位置已更新。"));
-  }
   async function removeItems() {
     if (dialog?.type !== "remove-items") return;
     const { kind, items } = dialog;
@@ -407,10 +400,17 @@ export default function App() {
     { id: "settings", title: t("设置"), Icon: Settings2 },
   ] as const;
   function cancel() {
+    const operation = operationSequence.current;
     cancelRequested.current = true;
     void call("cancel_operation")
-      .then(() => setNotice(t("已请求取消；正在完成当前安全步骤。")))
-      .catch((e) => setError(errorMessage(e, locale)));
+      .then(() => {
+        if (inFlight.current && operationSequence.current === operation)
+          setNotice(t("已请求取消；正在完成当前安全步骤。"));
+      })
+      .catch((e) => {
+        if (inFlight.current && operationSequence.current === operation)
+          setError(errorMessage(e, locale));
+      });
   }
   return (
     <OperationContext
@@ -490,7 +490,10 @@ export default function App() {
           <main className="page-content">
             {page === "library" && (
               <LibraryView
-                key={snapshot.skills.map((s) => s.latestRevisionId).join(":")}
+                key={
+                  snapshot.libraryRoot +
+                  snapshot.skills.map((s) => s.latestRevisionId).join(":")
+                }
                 skills={snapshot.skills}
                 updated={(skill) =>
                   setSnapshot((current) => ({
@@ -518,9 +521,10 @@ export default function App() {
             )}
             {page === "projects" && (
               <ProjectsView
-                key={snapshot.deployments
-                  .map((d) => d.id + d.revisionId)
-                  .join(":")}
+                key={
+                  snapshot.libraryRoot +
+                  snapshot.deployments.map((d) => d.id + d.revisionId).join(":")
+                }
                 projects={snapshot.projects}
                 remove={(items) =>
                   setDialog({ type: "remove-items", kind: "projects", items })
@@ -581,24 +585,17 @@ export default function App() {
                   busy={disabled}
                   save={(appearance) => void saveAppearance(appearance)}
                 />
-                <section className="settings-section">
-                  <h2>{t("本地技能库")}</h2>
-                  <p className="path">
-                    {snapshot.libraryRoot || t("尚未连接桌面后端")}
-                  </p>
-                  <button
-                    disabled={disabled || snapshot.skills.length > 0}
-                    onClick={() => void changeLibrary()}
-                  >
-                    <FolderOpen size={16} />
-                    {t("选择技能库位置")}
-                  </button>
-                  <p className="footnote">
-                    {t(
-                      "首次导入前可以更换目录。已有技能库的迁移向导将在后续提供。",
-                    )}
-                  </p>
-                </section>
+                <LibrarySettings
+                  libraryRoot={snapshot.libraryRoot}
+                  busy={disabled}
+                  run={run}
+                  choose={() => choose("library")}
+                  migrated={async ({ libraryRoot }) => {
+                    setSnapshot((current) => ({ ...current, libraryRoot }));
+                    setSourceSeed(null);
+                    return reload();
+                  }}
+                />
                 <FontNotice />
               </>
             )}

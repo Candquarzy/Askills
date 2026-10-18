@@ -104,6 +104,18 @@ export type PreparedImport = {
   source: Source | null;
 };
 export type DirectorySelection = { id: string; path: string };
+export type LibraryMigrationPlan = {
+  sourcePath: string;
+  targetPath: string;
+  skillCount: number;
+  revisionCount: number;
+  deploymentCount: number;
+  totalBytes: number;
+};
+export type LibraryMigrationResult = {
+  libraryRoot: string;
+  previousRoot: string;
+};
 export type DiscoveredProject = {
   selectionId: string;
   name: string;

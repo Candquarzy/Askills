@@ -924,6 +924,17 @@ code {
   font-size: 11px;
   margin: 18px 0;
 }
+.migration-paths {
+  display: grid;
+  gap: 18px;
+}
+.migration-paths h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.migration-paths p {
+  margin: 0;
+}
 .import-reader {
   border-top: 1px solid var(--line);
   margin-top: 18px;

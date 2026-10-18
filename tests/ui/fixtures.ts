@@ -32,6 +32,17 @@ type FixtureOptions = {
   removalFailure?: boolean;
   deploymentFailureSkill?: string;
   duplicateSkillName?: boolean;
+  librarySelectionCancelled?: boolean;
+  librarySamePath?: boolean;
+  migrationFailure?: boolean;
+  migrationPreviewFailure?: boolean;
+  migrationDelayMs?: number;
+  migrationRecoveredBeforeRetry?: boolean;
+  migrationSnapshotFailure?: boolean;
+  discardSelectionFailure?: boolean;
+  migrationReadyBeforeCancel?: boolean;
+  cancellationReplyDelayMs?: number;
+  laterRefreshDelayMs?: number;
 };
 
 declare global {
@@ -47,6 +58,7 @@ declare global {
       invocations: Invocation[];
       committedImports: number;
       committedSkillPaths: string[];
+      completedCancellations: number;
     };
     __markdownExecuted?: boolean;
   }
@@ -120,6 +132,11 @@ export async function installBackendFixture(
         options.locale ||
         "zh-CN";
       let failedLocale = false;
+      let libraryRoot = "D:/Example/Askills Library";
+      let failedMigration = false;
+      let migrationCancelled = false;
+      let failedMigrationSnapshot = false;
+      let snapshotCount = 0;
       let repositoryHistory: string[] =
         JSON.parse(
           localStorage.getItem("askills-test-repository-history") || "null",
@@ -158,6 +175,7 @@ export async function installBackendFixture(
         invocations: [] as Invocation[],
         committedImports: 0,
         committedSkillPaths: [] as string[],
+        completedCancellations: 0,
       };
       window.__ASKILLS_TEST__ = state;
       window.isTauri = true;
@@ -267,11 +285,24 @@ export async function installBackendFixture(
             await new Promise((resolve) => setTimeout(resolve, 5));
             switch (command) {
               case "get_snapshot": {
+                snapshotCount++;
+                if (snapshotCount >= 3 && options.laterRefreshDelayMs)
+                  await new Promise((resolve) =>
+                    setTimeout(resolve, options.laterRefreshDelayMs),
+                  );
+                if (
+                  libraryRoot === "D:/Example/library" &&
+                  options.migrationSnapshotFailure &&
+                  !failedMigrationSnapshot
+                ) {
+                  failedMigrationSnapshot = true;
+                  throw error("ReadFailed", "模拟迁移后的数据刷新失败");
+                }
                 const snapshot: Snapshot = {
                   skills: skills.filter((s) => !removedSkills.has(s.id)),
                   projects: projects.filter((p) => !removedProjects.has(p.id)),
                   deployments,
-                  libraryRoot: "D:/Example/Askills Library",
+                  libraryRoot,
                   recovery: [],
                   repositoryHistory,
                   appearance,
@@ -387,9 +418,54 @@ export async function installBackendFixture(
                 return null;
               }
               case "pick_directory": {
+                if (
+                  args.purpose === "library" &&
+                  options.librarySelectionCancelled
+                )
+                  return null;
                 const id = `selection-${++selectionNumber}`;
                 selected.set(id, String(args.purpose));
                 return { id, path: `D:/Example/${args.purpose}` };
+              }
+              case "preview_library_migration": {
+                if (selected.get(String(args.selectionId)) !== "library")
+                  throw error("SelectionExpired", "目录选择已失效");
+                if (options.migrationPreviewFailure)
+                  throw error(
+                    "DirectoryNotEmpty",
+                    "目标目录包含已有文件，请选择空目录",
+                  );
+                return {
+                  sourcePath: libraryRoot,
+                  targetPath: options.librarySamePath
+                    ? libraryRoot
+                    : "D:/Example/library",
+                  skillCount: skills.length,
+                  revisionCount: options.emptyLibrary ? 0 : revisions.length,
+                  deploymentCount: deployments.length,
+                  totalBytes: options.emptyLibrary ? 0 : 8192,
+                };
+              }
+              case "set_library_root": {
+                if (selected.get(String(args.selectionId)) !== "library")
+                  throw error("SelectionExpired", "目录选择已失效");
+                migrationCancelled = false;
+                await new Promise((resolve) =>
+                  setTimeout(resolve, options.migrationDelayMs || 0),
+                );
+                if (migrationCancelled && !options.migrationReadyBeforeCancel)
+                  throw error("Cancelled", "迁移已取消");
+                if (options.migrationFailure && !failedMigration) {
+                  failedMigration = true;
+                  throw error("PermissionDenied", "模拟迁移失败，请重试");
+                }
+                const previousRoot =
+                  options.migrationRecoveredBeforeRetry && failedMigration
+                    ? "D:/Example/library"
+                    : libraryRoot;
+                libraryRoot = "D:/Example/library";
+                selected.delete(String(args.selectionId));
+                return { libraryRoot, previousRoot };
               }
               case "prepare_import": {
                 if (selected.get(String(args.selectionId)) !== "import")
@@ -488,6 +564,11 @@ export async function installBackendFixture(
                   selected.set(item.selectionId, "project");
                 return structuredClone(discoveries);
               case "discard_selections": {
+                if (options.discardSelectionFailure)
+                  throw error(
+                    "MigrationRecoveryRequired",
+                    "迁移目标需要恢复，暂时无法释放目录授权",
+                  );
                 for (const id of (args.selectionIds as string[]) || [])
                   selected.delete(id);
                 return null;
@@ -609,6 +690,11 @@ export async function installBackendFixture(
                 );
               case "cancel_operation":
                 downloadCancelled = true;
+                migrationCancelled = true;
+                await new Promise((resolve) =>
+                  setTimeout(resolve, options.cancellationReplyDelayMs || 0),
+                );
+                state.completedCancellations++;
                 return null;
               default:
                 throw error("UnexpectedCommand", `测试未定义 IPC：${command}`);

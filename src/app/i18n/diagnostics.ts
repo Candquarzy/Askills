@@ -56,9 +56,24 @@ const summaries: Record<string, string> = {
     "Another Askills instance is using this data directory or library.",
   LibraryChanged:
     "The library directory was replaced externally. Restart and inspect it.",
-  LibraryNotEmpty: "Changing the library location requires an empty library.",
+  LibraryNotEmpty:
+    "Choose an empty destination folder or an empty Askills library.",
+  DirectoryNotEmpty:
+    "Choose an empty destination folder or an empty Askills library. Existing content will not be merged.",
   LibraryInUse:
-    "The library location cannot change while deployments or recovery records exist.",
+    "The library is in use. Finish pending operations before moving it.",
+  InsufficientSpace:
+    "The destination disk has insufficient free space. The current library is unchanged.",
+  MigrationCleanupRequired:
+    "The move did not complete. The original library remains active; inspect the files retained in the destination before retrying.",
+  MigrationRecoveryRequired:
+    "The migration destination changed. Restore its content before retrying; the original library backup has been preserved.",
+  UnsafeLibraryRoot:
+    "Choose a dedicated library directory that does not overlap the existing library, application data, or registered projects.",
+  RevisionModified:
+    "A library version failed integrity verification. Inspect its files before moving the library.",
+  RecoveryRequired:
+    "A pending project operation must be recovered before the library can be moved.",
   SkillNotFound: "The skill no longer exists.",
   RevisionNotFound: "The version no longer exists.",
   DriftDetected:
