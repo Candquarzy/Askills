@@ -17,3 +17,10 @@
 - 项目锁、可分享的 `askills.lock.json`、入口身份校验、外部改动保护与操作日志恢复。
 - 单独执行 `cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::deployments`：**19/19 通过**。
 - 验证真实 Windows junction、复制模式、部分复制取消、不同崩溃切点恢复、未知文件保留，以及预览/列表取消。
+
+## 2026-10-18 · GitHub 公共来源
+
+- 仓库/ref 解析为完整 commit，枚举候选技能，校验 Git blob 摘要，保留完整目录与祖先许可证。
+- 限制下载规模，拒绝链接、子模块、路径穿越、大小写冲突和不完整仓库树。
+- 单独执行 `cargo test --manifest-path src-tauri/Cargo.toml --locked --lib sources::github`：**15/15 离线测试通过**；显式联网测试默认跳过。
+- 真实 GitHub 下载在另行构建的原生集成测试中通过，使用本仓库固定提交 `e34a61764fec38508c4275f5af1e1d8bfb99f6c4` 的 `tauri-setup`，未写入真实用户技能库。

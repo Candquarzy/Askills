@@ -2,6 +2,7 @@ pub mod adapters;
 pub mod domain;
 pub mod platform;
 pub mod services;
+pub mod sources;
 pub mod storage;
 
 use serde::Serialize;
