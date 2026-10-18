@@ -1043,3 +1043,15 @@ code {
   overflow: auto;
   margin-bottom: 20px;
 }
+
+.source-methods {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.source-method-note {
+  margin-bottom: 22px;
+}
+.source-form > .footnote {
+  margin-bottom: 22px;
+}

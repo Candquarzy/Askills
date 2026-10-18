@@ -2,6 +2,15 @@
 
 日期：2026-10-18。范围：技能库、项目部署与恢复、GitHub 来源、IPC 和中文桌面流程的开发预览。
 
+## 三项优化后的最新验证
+
+- **61 项 Rust 回归通过，0 失败**；2 项显式联网测试在普通回归中默认跳过。新增覆盖别名兼容/恢复/原文不变，以及 Git 原始字节、固定提交、许可证、恶意参数/路径、缓存释放、缺失安装、输出限额、超时、运行中取消和仓库规模。
+- **14 项 Edge 界面测试通过**，使用 IPC fixture，覆盖别名搜索/恢复、项目内库/本地/云端添加、云端 Git 添加、方式切换和 Git 未安装提示；确认前不部署、非默认目标项目保持固定。
+- `cargo test ... native_git_public_smoke -- --ignored --nocapture` 实际通过公共 GitHub 下载。真实 Windows Tauri / WebView2 的 `pnpm test:native --git` 与 `--github` 均通过：Git 版本检测、固定提交 `4c0f5723f37b72fb741882fe7f3e3e5ea6161511` 的技能预览/确认导入、Markdown 阅读，以及通过真实 IPC 保存中文别名、重新加载页面后验证原名称和 revision 保持不变。
+- TypeScript、前端生产构建、Prettier、Rust fmt 与 Clippy 通过；用 `extra-filename=-verify` 构建独立原生程序，避免覆盖运行中的应用。实际 Git 来源页面截图与原生窗口截图已检查。
+- 原生测试数据在独立临时目录，未安装到用户真实项目。原生目录选择仍需人工验收；项目部署的真实文件操作由 Rust 测试覆盖，浏览器中的项目选择流程由 fixture 覆盖。
+- 仅公共仓库和本机 Windows Git 2.55.0 实测；私有仓库/其他凭据助手、macOS/Linux 尚未验证。下面记录初次核心模块交付时的历史结果，测试数以本节为最新。
+
 ## 本机环境
 
 - Windows x86_64，MSVC Visual Studio Community 2022，WebView2 155.0.4283.62。

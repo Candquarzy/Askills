@@ -2,6 +2,7 @@
 identifier = "workspace-access"
 description = "Manage skills through backend-validated selections, IDs and plans from the local main window."
 commands.allow = [
+  "resolve_git", "get_git_version",
   "set_skill_display_name",
   "get_app_info",
   "get_snapshot", "pick_directory", "prepare_import", "finish_import",

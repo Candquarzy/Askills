@@ -45,11 +45,13 @@ Write-Output "项目目录：$projectPath"
 3. 再次选择并确认导入，库中出现 `demo-skill`；搜索 `demo` 能找到它。
 4. 点击技能卡片，切换“阅读”和“原始 Markdown”。原文应包含 frontmatter。
 5. 再导入相同目录：内容未变时不增加版本数。来源目录和原始文件仍存在。
+6. 打开技能详情 → “编辑显示名称”，保存“我的演示技能”。按该别名搜索应能找到它；原始名称仍是 `demo-skill`。
+7. 重启桌面应用，别名应保留。查看“原始 Markdown”，`name` 仍为 `demo-skill`；“恢复原名”应清空别名。
 
 ## 4. 验证项目部署、更新和回滚
 
 1. 到“项目”点击“添加项目”，选择测试 `demo-project`。普通空目录也可以登记。
-2. 从技能库选 `demo-skill` → “添加到项目” → 测试项目 → Codex → **复制**。
+2. 点开测试项目 → “添加技能” → “从技能库”选 `demo-skill` → “下一步” → Codex → **复制**。目标项目已选中且不能切换。技能库详情的“添加到项目”入口也仍可使用。
 3. 预览目标应为 `<测试项目>/.agents/skills/demo-skill`。确认前没有此入口；确认后其中的 `SKILL.md` 应为 v1，同时生成项目 `askills.lock.json`。
 4. 在原 PowerShell 中修改来源文件，然后重新导入：
 
@@ -66,6 +68,8 @@ $sampleV2 = $sample.Replace('版本 v1', '版本 v2')
 
 本步骤只证明目录部署。对应工具能否发现或调用，需要另开 Codex/Cursor 会话、记录工具版本并实际验证。`.agents/skills` 可能同时被多个 Agent 读取。
 
+另外验证项目添加弹窗的“从本地”和“从云端”：分别选择测试技能目录、查询第 6 节的公共仓库。预览点击“导入并继续”后应进入当前项目的安装预览；关闭安装预览时，技能已经保存在库中，但项目尚未改变。确认应用后仍停留在刚才的项目详情。
+
 ## 5. 验证外部修改保护
 
 重新用复制模式安装后，只在测试项目中修改已复制的 `SKILL.md`，再尝试停用或升级。预期看到错误/内容变化提示，修改后的文件保留，不能显示操作成功。
@@ -79,7 +83,11 @@ $sampleV2 = $sample.Replace('版本 v1', '版本 v2')
 3. 再预览并确认导入。卡片应标记 GitHub，详情能看到来源与完整版本信息。
 4. 点击“检查更新”，重新解析来源；同一提交与内容不会重复增加版本。项目不会因来源变动自动升级。
 
-这是一次真实网络请求；断网或达到 GitHub API 配额时应显示失败，不能伪造“已导入”。不需要配置个人 GitHub 凭据。
+这是一次真实网络请求；断网或达到 GitHub API 配额时应显示失败，不能伪造“已导入”。默认 API 模式不需要配置个人 GitHub 凭据。
+
+再点“本地 Git” → “检查 Git 安装”，预期显示 `git version ...`（未安装时应提示安装并重启）。输入同一仓库和分支，查找、预览、确认导入。切换模式应清除上次候选，保留输入地址；只更换获取方式且提交/内容相同时应复用原有版本，不重复创建技能。可在项目“从云端”里重复该流程，目标项目不能改变。
+
+Git 模式使用本机代理/凭据和独立临时仓库，不在项目中执行 pull 或合并。普通测试只需要公共仓库；无应用内 GitHub 登录。未安装 Git 的环境可以继续使用 API。
 
 ## 7. 自动化检查
 
@@ -91,6 +99,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::library
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::projects
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::deployments
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib sources::github
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib sources::github::git
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib commands::tests
 ```
 
@@ -114,8 +123,25 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 pnpm tauri build --debug --no-bundle -- --locked
 pnpm test:native
 pnpm test:native --github
+pnpm test:native --git
 ```
 
-原生测试启动 `src-tauri/target/debug/askills.exe`，使用独立临时数据目录和 WebView2 缓存，通过仅本机的调试端口操作真实 IPC。结束后关闭测试进程并清理它创建的临时目录，证据保存在 `test-results/native/`。`--github` 额外在原生 UI 中执行本仓库公共技能的查询、下载、确认导入与阅读；不修改真实用户技能库。临时数据目录覆盖只在调试构建启用。
+原生测试启动 `src-tauri/target/debug/askills.exe`，使用独立临时数据目录和 WebView2 缓存，通过仅本机的调试端口操作真实 IPC。结束后关闭测试进程并清理它创建的临时目录，证据保存在 `test-results/native/`。`--github` 通过 API、`--git` 通过本机 Git 在原生 UI 中执行本仓库公共技能的查询、下载、确认导入与阅读，随后保存别名并重新加载页面检查持久化；不修改真实用户技能库。临时数据目录覆盖只在调试构建启用。
+
+默认 exe 正在运行时会被 Windows 占用。关闭自己的应用再构建，或者用独立名称验证：
+
+```powershell
+pnpm build
+cargo rustc --manifest-path src-tauri/Cargo.toml --locked --bin askills --features tauri/custom-protocol -- -C extra-filename=-verify
+$env:ASKILLS_SMOKE_EXE = 'src-tauri/target/debug/deps/askills-verify.exe'
+pnpm test:native --git
+Remove-Item Env:ASKILLS_SMOKE_EXE
+```
+
+可单独运行显式的 Rust 联网检查：
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib native_git_public_smoke -- --ignored --nocapture
+```
 
 这些检查不能代替正式安装包、macOS/Linux 或真实 Agent 技能加载验收。项目当前记录的结果见 [验证记录](validation.md)。

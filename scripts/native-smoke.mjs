@@ -22,7 +22,10 @@ await once(listener, "listening");
 const port = listener.address().port;
 await new Promise((resolve) => listener.close(resolve));
 const endpoint = `http://127.0.0.1:${port}`;
-const child = spawn(path.join(root, "src-tauri/target/debug/askills.exe"), [], {
+const executable = process.env.ASKILLS_SMOKE_EXE
+  ? path.resolve(root, process.env.ASKILLS_SMOKE_EXE)
+  : path.join(root, "src-tauri/target/debug/askills.exe");
+const child = spawn(executable, [], {
   cwd: root,
   windowsHide: true,
   stdio: ["ignore", "pipe", "pipe"],
@@ -41,7 +44,13 @@ child.on("error", (error) => (launchError = error));
 let browser;
 let page;
 const errors = [];
-const report = { native: true, github: false, checks: [] };
+const useGit = process.argv.includes("--git");
+const report = {
+  native: true,
+  github: false,
+  transport: useGit ? "git" : "api",
+  checks: [],
+};
 console.log("Starting isolated native window smoke…");
 try {
   let ready = false;
@@ -99,7 +108,7 @@ try {
   report.checks.push(
     "expired directory grant and ungranted fs plugin rejected",
   );
-  if (process.argv.includes("--github")) {
+  if (process.argv.includes("--github") || useGit) {
     console.log(
       "Testing public GitHub preview and import through the native UI…",
     );
@@ -107,6 +116,11 @@ try {
       .getByRole("navigation")
       .getByRole("button", { name: "来源", exact: true })
       .click();
+    if (useGit) {
+      await page.getByRole("button", { name: "本地 Git", exact: true }).click();
+      await page.getByRole("button", { name: "检查 Git 安装" }).click();
+      await expect(page.getByText(/^git version /)).toBeVisible();
+    }
     await page
       .getByLabel("仓库地址")
       .fill("https://github.com/Candquarzy/Askills");
@@ -115,7 +129,7 @@ try {
     const candidate = page
       .locator(".candidate-row")
       .filter({ hasText: ".agents/skills/tauri-setup" });
-    await expect(candidate).toBeVisible({ timeout: 90_000 });
+    await expect(candidate).toBeVisible({ timeout: 150_000 });
     await candidate.getByRole("button", { name: "下载并预览" }).click();
     const dialog = page.getByRole("dialog", { name: "确认导入技能" });
     await expect(dialog).toBeVisible({ timeout: 90_000 });
@@ -133,7 +147,27 @@ try {
     report.commit = imported.skills[0].source.commit;
     report.github = true;
     report.checks.push(
-      "public GitHub lookup/download, confirm-only import, native Markdown reading",
+      `public GitHub ${report.transport} lookup/download, confirm-only import, native Markdown reading`,
+    );
+    await page.getByRole("button", { name: "编辑显示名称" }).click();
+    await page
+      .getByRole("textbox", { name: "显示名称", exact: true })
+      .fill("我的 Tauri 工具");
+    await page.getByRole("button", { name: "保存名称" }).click();
+    await expect(
+      page.getByRole("heading", { name: "我的 Tauri 工具", exact: true }),
+    ).toBeVisible();
+    await page.reload();
+    await page.getByRole("button", { name: /^我的 Tauri 工具/ }).click();
+    await expect(
+      page.getByRole("button", { name: "编辑显示名称" }),
+    ).toBeEnabled();
+    const renamed = (await invoke("get_snapshot")).skills[0];
+    assert.equal(renamed.displayName, "我的 Tauri 工具");
+    assert.equal(renamed.name, imported.skills[0].name);
+    assert.equal(renamed.latestRevisionId, imported.skills[0].latestRevisionId);
+    report.checks.push(
+      "display name persisted through real SQLite IPC and frontend reload; original name and revision preserved",
     );
   }
   assert.deepEqual(errors, []);

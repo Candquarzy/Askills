@@ -38,6 +38,7 @@ struct PendingImport {
 }
 struct SavedCatalog {
     catalog: github::Catalog,
+    git: Option<github::git::GitCatalog>,
     created: Instant,
 }
 pub struct Workspace {
@@ -434,6 +435,7 @@ pub async fn resolve_github(
             value.id.clone(),
             SavedCatalog {
                 catalog,
+                git: None,
                 created: Instant::now(),
             },
         );
@@ -448,18 +450,56 @@ pub async fn prepare_github(
     skill_path: String,
 ) -> Result<PreparedImport> {
     work(state.inner().clone(), move |w, c| {
-        let catalog = &w
+        let saved = w
             .catalogs
             .get(&catalog_id)
-            .ok_or_else(|| AppError::new("CatalogExpired", "来源列表已过期，请重新查找"))?
-            .catalog;
-        let download = github::download(catalog, &skill_path, c)?;
+            .ok_or_else(|| AppError::new("CatalogExpired", "来源列表已过期，请重新查找"))?;
+        let download = if let Some(git) = &saved.git {
+            github::git::download(git, &skill_path, c)?
+        } else {
+            github::download(&saved.catalog, &skill_path, c)?
+        };
         w.prepare(
             download.skill_path,
             Some(download.source),
             Some(download.directory),
             c,
         )
+    })
+    .await
+}
+#[tauri::command]
+pub async fn get_git_version(state: State<'_, Arc<Runtime>>) -> Result<String> {
+    work(state.inner().clone(), |_, c| github::git::version(c)).await
+}
+#[tauri::command]
+pub async fn resolve_git(
+    state: State<'_, Arc<Runtime>>,
+    repository: String,
+    reference: String,
+) -> Result<CatalogView> {
+    work(state.inner().clone(), move |w, c| {
+        if w.catalogs.len() >= CATALOG_LIMIT {
+            w.catalogs.clear();
+        }
+        let resolved = github::git::resolve(&repository, &reference, c)?;
+        let catalog = resolved.catalog.clone();
+        let value = CatalogView {
+            id: uuid::Uuid::new_v4().to_string(),
+            repository: catalog.repository.clone(),
+            reference: catalog.reference.clone(),
+            commit: catalog.commit.clone(),
+            candidates: catalog.candidates.clone(),
+        };
+        w.catalogs.insert(
+            value.id.clone(),
+            SavedCatalog {
+                catalog,
+                git: Some(resolved),
+                created: Instant::now(),
+            },
+        );
+        Ok(value)
     })
     .await
 }

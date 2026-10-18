@@ -50,6 +50,8 @@ pub fn run() {
             commands::remove_deployment,
             commands::rollback_deployment,
             commands::resolve_github,
+            commands::resolve_git,
+            commands::get_git_version,
             commands::prepare_github,
             commands::set_library_root,
             commands::cancel_operation,

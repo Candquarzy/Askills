@@ -21,6 +21,8 @@ use url::Url;
 
 use crate::domain::{AppError, Result, SkillSource};
 
+pub mod git;
+
 const API_ORIGIN: &str = "https://api.github.com";
 const API_VERSION: &str = "2022-11-28";
 const MAX_TREE_BYTES: usize = 10 * 1024 * 1024;
@@ -344,6 +346,18 @@ fn resolve_with(
         cancel,
     )?;
     validate_tree(&tree, &commit.commit.tree.sha, cancel)?;
+    catalog_from_tree(repo, reference, commit.sha, tree, cancel)
+}
+
+fn catalog_from_tree(
+    repo: Repository,
+    reference: String,
+    commit: String,
+    tree: TreeResponse,
+    cancel: &AtomicBool,
+) -> Result<Catalog> {
+    validate_sha(&commit)?;
+    validate_tree(&tree, &tree.sha, cancel)?;
     // Aggregate once per ancestor; a repository with many skills must not turn
     // candidate discovery into a quadratic scan of the complete tree.
     let mut directory_sizes: HashMap<&str, (usize, u64)> = HashMap::new();
@@ -404,7 +418,7 @@ fn resolve_with(
     Ok(Catalog {
         repository: format!("https://github.com/{}/{}", repo.owner, repo.name),
         reference,
-        commit: commit.sha,
+        commit,
         candidates,
         repo,
         tree: tree.tree,

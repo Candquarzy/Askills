@@ -29,6 +29,8 @@ export function SourcesView({
   const [repository, setRepository] = useState(seed?.source.url || "");
   const [reference, setReference] = useState(seed?.source.reference || "");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [method, setMethod] = useState<"api" | "git">("api");
+  const [gitVersion, setGitVersion] = useState("");
   useEffect(() => {
     if (seed) {
       setRepository(seed.source.url || "");
@@ -38,8 +40,13 @@ export function SourcesView({
   }, [seed]);
   async function resolve() {
     setCatalog(null);
-    const result = await run("解析 GitHub 固定版本", () =>
-      call<Catalog>("resolve_github", { repository, reference }),
+    const result = await run(
+      method === "git" ? "使用本机 Git 拉取固定版本" : "解析 GitHub 固定版本",
+      () =>
+        call<Catalog>(method === "git" ? "resolve_git" : "resolve_github", {
+          repository,
+          reference,
+        }),
     );
     if (result) setCatalog(result);
   }
@@ -60,16 +67,64 @@ export function SourcesView({
           <div>
             <p className="eyebrow">DISCOVER & BRING HOME</p>
             <h1>来源</h1>
-            <p className="subtitle">
-              从 GitHub 公共仓库获取技能，保存到自己的本地库。
-            </p>
+            <p className="subtitle">从 GitHub 获取技能，保存到自己的本地库。</p>
           </div>
           <span className="pill">
-            <Github size={15} /> GitHub 公共仓库
+            <Github size={15} /> GitHub 来源
           </span>
         </header>
       )}
       <section className="source-form">
+        <div className="source-methods" role="group" aria-label="获取方式">
+          <button
+            aria-pressed={method === "api"}
+            className={method === "api" ? "primary" : ""}
+            disabled={busy}
+            onClick={() => {
+              setMethod("api");
+              setCatalog(null);
+            }}
+          >
+            GitHub API
+          </button>
+          <button
+            aria-pressed={method === "git"}
+            className={method === "git" ? "primary" : ""}
+            disabled={busy}
+            onClick={() => {
+              setMethod("git");
+              setCatalog(null);
+            }}
+          >
+            本地 Git
+          </button>
+        </div>
+        {method === "git" ? (
+          <div className="source-method-note">
+            <p className="footnote">
+              使用已安装的
+              Git，沿用本机代理和凭据配置。在独立临时仓库拉取固定提交，不合并或改动你的项目；无需
+              GitHub API 配额。请填写 HTTPS 仓库地址，交互登录提示不会弹出。
+            </p>
+            <button
+              className="text-button"
+              disabled={busy}
+              onClick={() =>
+                void run("检查本机 Git", async () => {
+                  const value = await call<string>("get_git_version");
+                  setGitVersion(value);
+                })
+              }
+            >
+              检查 Git 安装
+            </button>
+            {gitVersion && <span className="muted">{gitVersion}</span>}
+          </div>
+        ) : (
+          <p className="footnote">
+            通过 GitHub API 获取公共仓库，不需要安装 Git。
+          </p>
+        )}
         <div className="source-title">
           <Github size={24} />
           <div>

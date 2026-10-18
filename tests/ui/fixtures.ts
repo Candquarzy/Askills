@@ -17,6 +17,7 @@ type FixtureOptions = {
   registrationFailure?: boolean;
   deploymentConflict?: boolean;
   extraProject?: boolean;
+  gitUnavailable?: boolean;
 };
 
 declare global {
@@ -325,9 +326,24 @@ export async function installBackendFixture(
                 projects.push(project);
                 return project;
               }
+              case "get_git_version":
+                if (options.gitUnavailable)
+                  throw error(
+                    "GitNotInstalled",
+                    "未找到本机 Git，请安装 Git 并重新启动 Askills，或切换 GitHub API",
+                  );
+                return "git version 2.55.0.windows.3";
+              case "resolve_git":
+                if (options.gitUnavailable)
+                  throw error(
+                    "GitNotInstalled",
+                    "未找到本机 Git，请安装 Git 并重新启动 Askills，或切换 GitHub API",
+                  );
+              // Both transports expose the same catalog shape; the opaque id
+              // preserves which backend prepared it.
               case "resolve_github":
                 return {
-                  id: "catalog-one",
+                  id: command === "resolve_git" ? "catalog-git" : "catalog-one",
                   repository: String(args.repository),
                   reference: String(args.reference),
                   commit: "e".repeat(40),
@@ -342,7 +358,9 @@ export async function installBackendFixture(
                 };
               case "prepare_github":
                 if (
-                  args.catalogId !== "catalog-one" ||
+                  !["catalog-one", "catalog-git"].includes(
+                    String(args.catalogId),
+                  ) ||
                   args.skillPath !== "skills/rust"
                 )
                   throw error("InvalidCandidate", "未知技能候选");

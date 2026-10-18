@@ -1,8 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { installBackendFixture, invocations } from "./fixtures";
 
-for (const source of ["从技能库", "从本地", "从云端"]) {
-  test(`项目内${source}添加时始终绑定所选项目，确认前不部署`, async ({
+for (const [source, git] of [
+  ["从技能库", false],
+  ["从本地", false],
+  ["从云端", false],
+  ["从云端", true],
+] as const) {
+  test(`项目内${source}${git ? "（本地 Git）" : ""}添加时始终绑定所选项目，确认前不部署`, async ({
     page,
   }) => {
     await installBackendFixture(page, { extraProject: true });
@@ -22,6 +27,10 @@ for (const source of ["从技能库", "从本地", "从云端"]) {
       if (source === "从本地")
         await picker.getByRole("button", { name: "选择本地技能" }).click();
       else {
+        if (git)
+          await picker
+            .getByRole("button", { name: "本地 Git", exact: true })
+            .click();
         await picker
           .getByLabel("仓库地址")
           .fill("https://github.com/example/skills");

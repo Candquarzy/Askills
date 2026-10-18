@@ -18,6 +18,8 @@ fn main() {
             "remove_deployment",
             "rollback_deployment",
             "resolve_github",
+            "resolve_git",
+            "get_git_version",
             "prepare_github",
             "set_library_root",
             "cancel_operation",
