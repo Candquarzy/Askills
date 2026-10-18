@@ -322,13 +322,20 @@ export function LibraryView({
               )}
             </div>
             <p className="path">
+              {t("路径：")}
               {doc.revision.source.url || doc.revision.source.localPath}
             </p>
-            {doc.warnings.map((w) => (
-              <p className="notice" key={w}>
-                {t(w)}
-              </p>
-            ))}
+            {doc.warnings
+              .filter(
+                (warning) =>
+                  warning !==
+                  "包含 scripts；Askills 不执行脚本，安装后 Agent 可能按指令调用它们",
+              )
+              .map((w) => (
+                <p className="notice" key={w}>
+                  {t(w)}
+                </p>
+              ))}
             <div className="reader-tabs">
               <button
                 className={!raw ? "active" : ""}

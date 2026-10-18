@@ -80,6 +80,7 @@
   "保存界面语言": "Saving interface language",
   "界面语言已保存。": "Interface language saved.",
   "界面语言保存在本地，重启后保留，不需要在线翻译服务。": "Your language is saved locally and kept after restart. No online translation service is needed.",
+  "路径：": "Path: ",
   "预览技能": "Preview skill",
   "确认导入技能": "Confirm skill import",
   "个文件": " files",
