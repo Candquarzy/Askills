@@ -18,6 +18,8 @@ use std::{
 use uuid::Uuid;
 
 mod filesystem;
+mod library_migration;
+pub use library_migration::{preflight_library_migration, relocate_library};
 #[cfg(test)]
 mod tests;
 
@@ -265,6 +267,16 @@ fn lock_document(
     replacement: Option<&SavedDeployment>,
     remove_id: Option<&str>,
 ) -> Result<ProjectLock> {
+    lock_document_with(store, project_id, replacement, remove_id, Store::revision)
+}
+
+fn lock_document_with(
+    store: &Store,
+    project_id: &str,
+    replacement: Option<&SavedDeployment>,
+    remove_id: Option<&str>,
+    read_revision: fn(&Store, &str) -> Result<Revision>,
+) -> Result<ProjectLock> {
     let mut entries = saved_list(store)?;
     if let Some(id) = remove_id {
         entries.retain(|entry| entry.view.id != id);
@@ -279,7 +291,7 @@ fn lock_document(
         .into_iter()
         .filter(|entry| entry.view.project_id == project_id)
     {
-        let revision = store.revision(&entry.view.revision_id)?;
+        let revision = read_revision(store, &entry.view.revision_id)?;
         let relative = Path::new(&entry.view.target_path)
             .strip_prefix(&project.path)
             .map_err(|_| error("UnsafePath", "安装路径不属于记录的项目"))?
@@ -321,8 +333,17 @@ fn read_lock(path: &Path) -> Result<Option<String>> {
 }
 
 fn validate_lock(store: &Store, project_id: &str, project: &Path) -> Result<Option<String>> {
+    validate_lock_with(store, project_id, project, Store::revision)
+}
+
+fn validate_lock_with(
+    store: &Store,
+    project_id: &str,
+    project: &Path,
+    read_revision: fn(&Store, &str) -> Result<Revision>,
+) -> Result<Option<String>> {
     let current = read_lock(&project.join("askills.lock.json"))?;
-    let expected = lock_document(store, project_id, None, None)?;
+    let expected = lock_document_with(store, project_id, None, None, read_revision)?;
     match current.as_ref() {
         Some(text) => {
             let parsed: ProjectLock = serde_json::from_str(text).map_err(|_| {
@@ -625,6 +646,15 @@ pub fn apply(store: &mut Store, plan_id: &str, cancel: &AtomicBool) -> Result<De
 }
 
 fn execute(store: &mut Store, journal: &mut Journal, cancel: &AtomicBool) -> Result<()> {
+    execute_with_lock(store, journal, cancel, None)
+}
+
+fn execute_with_lock(
+    store: &mut Store,
+    journal: &mut Journal,
+    cancel: &AtomicBool,
+    unchanged_lock: Option<&str>,
+) -> Result<()> {
     let paths = filesystem::Paths::new(journal)?;
     safe_fs::assert_safe_path(&paths.parent)?;
     fs::create_dir_all(&paths.parent).map_err(io)?;
@@ -662,14 +692,18 @@ fn execute(store: &mut Store, journal: &mut Journal, cancel: &AtomicBool) -> Res
                 .ok_or_else(|| error("InvalidState", "安装记录缺失"))?,
         )?;
     }
-    journal.lock_after = serde_json::to_string_pretty(&lock_document(
-        store,
-        &journal.project_id,
-        journal.after.as_ref(),
-        journal.before.as_ref().map(|old| old.view.id.as_str()),
-    )?)
-    .map_err(json)?
-        + "\n";
+    journal.lock_after = if let Some(content) = unchanged_lock {
+        content.to_owned()
+    } else {
+        serde_json::to_string_pretty(&lock_document(
+            store,
+            &journal.project_id,
+            journal.after.as_ref(),
+            journal.before.as_ref().map(|old| old.view.id.as_str()),
+        )?)
+        .map_err(json)?
+            + "\n"
+    };
     if journal.lock_before.is_some() {
         journal.lock_old_identity = Some(filesystem::identity(&paths.lock)?);
     }
