@@ -4,7 +4,9 @@ use crate::domain::{
 };
 use crate::services::{deployments, library, projects};
 use crate::sources::github;
-use crate::storage::{Appearance, Locale, Store, ThemeMode};
+use crate::storage::{
+    Appearance, LibraryMigrationPlan, LibraryMigrationResult, Locale, Store, ThemeMode,
+};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -86,7 +88,7 @@ impl Workspace {
             ));
         }
         let id = uuid::Uuid::new_v4().to_string();
-        let display = path.to_string_lossy().into_owned();
+        let display = crate::platform::fs::display_path(&path);
         self.selections.insert(
             id.clone(),
             Selection {
@@ -96,6 +98,17 @@ impl Workspace {
             },
         );
         Ok(DirectorySelection { id, path: display })
+    }
+    fn migrate_selection(
+        &mut self,
+        id: &str,
+        cancel: &AtomicBool,
+    ) -> Result<LibraryMigrationResult> {
+        let path = self.selection(id, "library")?;
+        let result = self.store.migrate_library(&path, cancel)?;
+        self.selections.remove(id);
+        self.imports.clear();
+        Ok(result)
     }
     fn prepare(
         &mut self,
@@ -194,6 +207,9 @@ async fn work<T: Send + 'static>(
             .lock()
             .map_err(|_| AppError::new("StateUnavailable", "应用状态异常，请重新启动"))?;
         let workspace = locked.as_mut().map_err(|e| e.clone())?;
+        // A switch that already rebound project entries must finish before another
+        // command can add data to the old library or create an outdated plan.
+        workspace.store.resume_library_migration()?;
         workspace.expire();
         task(workspace, &runtime.cancel)
     })
@@ -256,7 +272,7 @@ pub async fn get_snapshot(state: State<'_, Arc<Runtime>>) -> Result<Snapshot> {
             skills: w.store.list_skills()?,
             projects: w.store.list_projects()?,
             deployments: deployments::list_cancellable(&w.store, c)?,
-            library_root: w.store.library_root.to_string_lossy().into_owned(),
+            library_root: crate::platform::fs::display_path(&w.store.library_root),
             recovery: w.recovery.clone(),
             repository_history: w.store.repository_history()?,
             appearance: w.store.appearance()?,
@@ -654,12 +670,39 @@ pub async fn resolve_git(
     .await
 }
 #[tauri::command]
-pub async fn set_library_root(state: State<'_, Arc<Runtime>>, selection_id: String) -> Result<()> {
-    work(state.inner().clone(), move |w, _| {
+pub async fn preview_library_migration(
+    state: State<'_, Arc<Runtime>>,
+    selection_id: String,
+) -> Result<LibraryMigrationPlan> {
+    work(state.inner().clone(), move |w, cancel| {
         let path = w.selection(&selection_id, "library")?;
-        w.store.set_library_root(&path)?;
-        w.selections.remove(&selection_id);
+        w.store.preview_library_migration(&path, cancel)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn discard_selections(
+    state: State<'_, Arc<Runtime>>,
+    selection_ids: Vec<String>,
+) -> Result<()> {
+    work(state.inner().clone(), move |w, _| {
+        if selection_ids.len() > SELECTION_LIMIT {
+            return Err(AppError::new("SelectionLimit", "目录选择数量超过上限"));
+        }
+        for id in selection_ids {
+            w.selections.remove(&id);
+        }
         Ok(())
+    })
+    .await
+}
+#[tauri::command]
+pub async fn set_library_root(
+    state: State<'_, Arc<Runtime>>,
+    selection_id: String,
+) -> Result<LibraryMigrationResult> {
+    work(state.inner().clone(), move |w, cancel| {
+        w.migrate_selection(&selection_id, cancel)
     })
     .await
 }

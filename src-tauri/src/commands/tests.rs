@@ -168,3 +168,62 @@ fn running_work_rejects_concurrency_observes_cancel_and_releases_after_errors() 
         42
     );
 }
+
+#[test]
+fn library_migration_requires_a_library_grant_and_consumes_it_only_after_success() {
+    let temporary = tempfile::tempdir().unwrap();
+    let mut workspace = Workspace::open(temporary.path().join("app")).unwrap();
+    let source = temporary.path().join("sample");
+    write_skill(&source, "existing library content");
+    let cancel = AtomicBool::new(false);
+    workspace
+        .store
+        .import_local(&source, None, None, &cancel)
+        .unwrap();
+    let pending = workspace.prepare(source, None, None, &cancel).unwrap();
+    let target = temporary.path().join("new library");
+    fs::create_dir(&target).unwrap();
+    let wrong = workspace.add_selection(target.clone(), "project").unwrap();
+    assert_eq!(
+        workspace
+            .migrate_selection(&wrong.id, &cancel)
+            .unwrap_err()
+            .code,
+        "InvalidSelection"
+    );
+    assert_eq!(
+        workspace
+            .migrate_selection("D:/ungranted", &cancel)
+            .unwrap_err()
+            .code,
+        "SelectionExpired"
+    );
+    let grant = workspace.add_selection(target.clone(), "library").unwrap();
+    fs::write(target.join("keep.txt"), "do not overwrite").unwrap();
+    assert_eq!(
+        workspace
+            .migrate_selection(&grant.id, &cancel)
+            .unwrap_err()
+            .code,
+        "DirectoryNotEmpty"
+    );
+    assert!(workspace.selections.contains_key(&grant.id));
+    assert!(workspace.imports.contains_key(&pending.id));
+    assert_eq!(
+        fs::read_to_string(target.join("keep.txt")).unwrap(),
+        "do not overwrite"
+    );
+    fs::remove_file(target.join("keep.txt")).unwrap();
+    let result = workspace.migrate_selection(&grant.id, &cancel).unwrap();
+    assert_eq!(PathBuf::from(result.library_root), target);
+    assert!(!workspace.selections.contains_key(&grant.id));
+    assert!(workspace.imports.is_empty());
+    assert_eq!(
+        workspace
+            .migrate_selection(&grant.id, &cancel)
+            .unwrap_err()
+            .code,
+        "SelectionExpired"
+    );
+    assert_eq!(workspace.store.list_skills().unwrap().len(), 1);
+}

@@ -17,9 +17,11 @@ use uuid::Uuid;
 mod appearance;
 mod locale;
 mod management;
+mod migration;
 mod repository_history;
 pub use appearance::{Appearance, ThemeMode};
 pub use locale::Locale;
+pub use migration::{LibraryMigrationPlan, LibraryMigrationResult};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -318,7 +320,7 @@ impl Store {
              PRAGMA user_version=1;
              COMMIT;"
         )?;
-        let store = Self {
+        let mut store = Self {
             conn,
             library_root,
             data_dir,
@@ -326,6 +328,7 @@ impl Store {
             _data_lock: data_lock,
             _library_lock: library_lock,
         };
+        store.recover_library_migration()?;
         store.recover_manifests()?;
         store.recover_staging()?;
         Ok(store)
@@ -345,77 +348,8 @@ impl Store {
     }
 
     pub fn set_library_root(&mut self, path: &Path) -> Result<()> {
-        self.verify_library()?;
-        let current = self.library_root.clone();
-        if path.exists() && canonical_directory(path)? == current {
-            return Ok(());
-        }
-        let count: i64 = self
-            .conn
-            .query_row("SELECT count(*) FROM skills", [], |row| row.get(0))?;
-        if count != 0 {
-            return Err(AppError::new(
-                "LibraryNotEmpty",
-                "已有 skill 时不能更换库位置；此版本仅支持空库设置",
-            ));
-        }
-        // Deployment modules store their own tables. A nonempty deployment/operation table
-        // is conservatively treated as a reference to the current library.
-        let tables: Vec<String> = self
-            .conn
-            .prepare("SELECT name FROM sqlite_master WHERE type='table'")?
-            .query_map([], |row| row.get(0))?
-            .collect::<std::result::Result<_, _>>()?;
-        for table in tables {
-            if table.starts_with("deployment")
-                || table.starts_with("operation")
-                || table.starts_with("askills_deployment")
-            {
-                if !table
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-                {
-                    continue;
-                }
-                let count: i64 = self.conn.query_row(
-                    &format!("SELECT count(*) FROM \"{table}\""),
-                    [],
-                    |row| row.get(0),
-                )?;
-                if count > 0 {
-                    return Err(AppError::new(
-                        "LibraryInUse",
-                        "存在部署或恢复记录，暂不能更换 skills 库位置",
-                    ));
-                }
-            }
-        }
-        safe_library_root(path)?;
-        if path.starts_with(&current) || current.starts_with(path) {
-            return Err(AppError::new(
-                "UnsafeLibraryRoot",
-                "新旧 skills 库不能互相嵌套",
-            ));
-        }
-        let (root, id, lock) = initialize_library(path)?;
-        if fs::read_dir(root.join("skills"))?.next().is_some() {
-            return Err(AppError::new(
-                "LibraryNotEmpty",
-                "当前版本只能切换到空 skills 库",
-            ));
-        }
-        let settings = Settings {
-            schema_version: 1,
-            library_root: display_path(&root),
-        };
-        atomic_write(
-            &self.data_dir.join("settings.json"),
-            &serde_json::to_vec_pretty(&settings)?,
-        )?;
-        self.library_root = root;
-        self.library_id = id;
-        self._library_lock = lock;
-        Ok(())
+        self.migrate_library(path, &AtomicBool::new(false))
+            .map(|_| ())
     }
 
     pub fn list_skills(&self) -> Result<Vec<Skill>> {

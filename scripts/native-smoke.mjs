@@ -205,6 +205,23 @@ try {
   report.checks.push(
     "expired directory grant and ungranted fs plugin rejected",
   );
+  for (const command of ["preview_library_migration", "set_library_root"]) {
+    const rejected = await page.evaluate(async (command) => {
+      try {
+        await window.__TAURI_INTERNALS__.invoke(command, {
+          selectionId: "untrusted-migration-target",
+        });
+        return null;
+      } catch (error) {
+        return error;
+      }
+    }, command);
+    assert.equal(rejected?.code, "SelectionExpired");
+  }
+  await invoke("discard_selections", { selectionIds: [] });
+  report.checks.push(
+    "library migration IPC registered; ungranted target rejected",
+  );
   await assert.rejects(
     invoke("translate_preview", { importId: "removed-feature" }),
   );

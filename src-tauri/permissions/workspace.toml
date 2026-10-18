@@ -14,5 +14,6 @@ commands.allow = [
   "discard_import", "register_project", "discover_projects", "scan_project",
   "get_document", "get_revisions", "preview_deployment", "apply_deployment",
   "remove_deployment", "rollback_deployment", "resolve_github", "prepare_github",
-  "set_library_root", "cancel_operation", "get_revision_diff"
+  "set_library_root", "preview_library_migration", "discard_selections",
+  "cancel_operation", "get_revision_diff"
 ]

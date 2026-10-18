@@ -29,6 +29,8 @@ fn main() {
             "prepare_github",
             "get_download_progress",
             "set_library_root",
+            "preview_library_migration",
+            "discard_selections",
             "cancel_operation",
             "get_revision_diff",
         ]),

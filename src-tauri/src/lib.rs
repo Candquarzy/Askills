@@ -80,6 +80,8 @@ pub fn run() {
             commands::prepare_github,
             commands::get_download_progress,
             commands::set_library_root,
+            commands::preview_library_migration,
+            commands::discard_selections,
             commands::cancel_operation,
             commands::get_revision_diff,
         ])
