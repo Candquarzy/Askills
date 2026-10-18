@@ -108,6 +108,20 @@ try {
   report.checks.push(
     "expired directory grant and ungranted fs plugin rejected",
   );
+  const invalidTranslation = await page.evaluate(async () => {
+    try {
+      await window.__TAURI_INTERNALS__.invoke("translate_preview", {
+        importId: "expired-preview",
+      });
+      return null;
+    } catch (error) {
+      return error;
+    }
+  });
+  assert.equal(invalidTranslation?.code, "PreviewExpired");
+  report.checks.push(
+    "translation IPC registered and expired preview rejected without external request",
+  );
   if (process.argv.includes("--github") || useGit) {
     console.log(
       "Testing public GitHub preview and import through the native UI…",
@@ -152,6 +166,25 @@ try {
       const dialog = page.getByRole("dialog", { name: "预览技能" });
       await expect(dialog).toBeVisible({ timeout: 90_000 });
       assert.equal((await invoke("get_snapshot")).skills.length, 0);
+      if (process.argv.includes("--translate")) {
+        const original = await dialog.locator(".import-reader").innerText();
+        await dialog
+          .getByRole("button", { name: "翻译为简体中文", exact: true })
+          .click();
+        await expect(
+          dialog.getByRole("tab", { name: "简体中文", exact: true }),
+        ).toBeVisible({ timeout: 150_000 });
+        assert.match(
+          await dialog.locator(".import-reader").innerText(),
+          /[\u4e00-\u9fff]/,
+        );
+        await dialog.getByRole("tab", { name: "原文", exact: true }).click();
+        await expect(dialog.locator(".import-reader")).toHaveText(original);
+        assert.equal((await invoke("get_snapshot")).skills.length, 0);
+        report.checks.push(
+          "public built-in skill translated through native IPC and MyMemory; original toggle and no automatic import verified",
+        );
+      }
       await dialog
         .getByRole("button", { name: "下载到技能库", exact: true })
         .click();

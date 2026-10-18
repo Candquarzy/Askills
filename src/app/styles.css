@@ -1084,6 +1084,20 @@ code {
   overflow-wrap: anywhere;
   max-width: 600px;
 }
+.preview-reader-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+.preview-reader-actions .reader-tabs {
+  margin: 0;
+}
+.translation-notice {
+  margin: 10px 0 14px;
+  line-height: 1.7;
+}
 @media (max-width: 800px) {
   .candidate-row {
     flex-wrap: wrap;

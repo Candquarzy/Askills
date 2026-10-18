@@ -32,7 +32,7 @@ import { ProjectsView } from "../features/projects/ProjectsView";
 import { ProjectSkillPicker } from "../features/projects/ProjectSkillPicker";
 import { SourcesView } from "../features/sources/SourcesView";
 import { Modal } from "../components/Modal";
-import { Markdown } from "../components/Markdown";
+import { PreviewReader } from "../components/PreviewReader";
 import { OperationContext, type OperationProgress } from "./OperationContext";
 import { OperationToast } from "../components/OperationToast";
 import "./styles.css";
@@ -485,7 +485,9 @@ export default function App() {
                 <section className="settings-section">
                   <h2>中文与阅读</h2>
                   <p>
-                    界面使用简体中文；技能保留原文。自动翻译将在后续阶段加入。
+                    预览中可点击“翻译为简体中文”，通过 MyMemory
+                    公开服务翻译英文正文，无需配置密钥。匿名额度每天 5,000
+                    字符，服务可能长期保存提交文本；仅主动点击后发送。译文不写入技能文件。
                   </p>
                 </section>
               </>
@@ -542,9 +544,13 @@ export default function App() {
                   {w}
                 </p>
               ))}
-              <div className="import-reader">
-                <Markdown text={dialog.value.preview.markdown} />
-              </div>
+              <PreviewReader
+                key={dialog.value.id}
+                importId={dialog.value.id}
+                markdown={dialog.value.preview.markdown}
+                busy={!!busy}
+                run={run}
+              />
             </div>
             <footer className="modal-footer">
               <span className="muted">

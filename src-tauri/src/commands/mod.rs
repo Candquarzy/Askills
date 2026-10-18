@@ -2,6 +2,7 @@ use crate::domain::{
     AppError, DetectedSkill, ImportPreview, Project, Result, Revision, Skill, SkillDocument,
     SkillSource,
 };
+use crate::services::translation::Translator;
 use crate::services::{deployments, library, projects};
 use crate::sources::github;
 use crate::storage::Store;
@@ -47,6 +48,7 @@ pub struct Workspace {
     imports: HashMap<String, PendingImport>,
     catalogs: HashMap<String, SavedCatalog>,
     recovery: Vec<String>,
+    translator: Translator,
 }
 
 impl Workspace {
@@ -60,6 +62,7 @@ impl Workspace {
             imports: HashMap::new(),
             catalogs: HashMap::new(),
             recovery,
+            translator: Translator::default(),
         })
     }
     fn expire(&mut self) {
@@ -124,6 +127,14 @@ impl Workspace {
             preview,
             source,
         })
+    }
+    fn translate_preview(&mut self, import_id: &str, cancel: &AtomicBool) -> Result<String> {
+        let pending = self
+            .imports
+            .get(import_id)
+            .ok_or_else(|| AppError::new("PreviewExpired", "技能预览已过期，请重新打开后翻译"))?;
+        self.translator
+            .translate_markdown(&pending.preview.markdown, cancel)
     }
 }
 
@@ -515,6 +526,18 @@ pub fn get_download_progress(
 #[tauri::command]
 pub async fn get_git_version(state: State<'_, Arc<Runtime>>) -> Result<String> {
     work(state.inner().clone(), |_, c| github::git::version(c)).await
+}
+#[tauri::command]
+pub async fn translate_preview(
+    state: State<'_, Arc<Runtime>>,
+    import_id: String,
+) -> Result<String> {
+    work(state.inner().clone(), move |w, cancel| {
+        // Translate only the backend-authorized preview, never frontend paths or
+        // arbitrary request URLs. The original preview remains immutable.
+        w.translate_preview(&import_id, cancel)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn resolve_git(
