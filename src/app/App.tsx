@@ -29,9 +29,11 @@ import type {
   DeploymentPlan,
   Deployment,
   Skill,
+  Project,
 } from "../lib/ipc/types";
 import { LibraryView } from "../features/library/LibraryView";
 import { ProjectsView } from "../features/projects/ProjectsView";
+import { ProjectSkillPicker } from "../features/projects/ProjectSkillPicker";
 import { SourcesView } from "../features/sources/SourcesView";
 import { Modal } from "../components/Modal";
 import { Markdown } from "../components/Markdown";
@@ -40,8 +42,9 @@ import "./styles.css";
 
 type Page = "library" | "projects" | "sources" | "settings";
 type Dialog =
-  | { type: "import"; value: PreparedImport }
-  | { type: "install"; revision: Revision }
+  | { type: "import"; value: PreparedImport; targetProjectId?: string }
+  | { type: "install"; revision: Revision; targetProjectId?: string }
+  | { type: "project-add"; project: Project }
   | { type: "plan"; value: DeploymentPlan }
   | { type: "discover"; values: DiscoveredProject[] }
   | { type: "deployment"; value: Deployment; action: "remove" | "rollback" }
@@ -63,6 +66,7 @@ export default function App() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [sourceSeed, setSourceSeed] = useState<Skill | null>(null);
   const [projectId, setProjectId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const [agent, setAgent] = useState("codex");
   const [mode, setMode] = useState("auto");
   const [chosenProjects, setChosenProjects] = useState<string[]>([]);
@@ -102,26 +106,46 @@ export default function App() {
   async function choose(purpose: string) {
     return call<DirectorySelection | null>("pick_directory", { purpose });
   }
-  async function importLocal() {
+  async function importLocal(targetProjectId?: string) {
     const value = await run("检查本地技能", async () => {
       const selection = await choose("import");
       return selection
         ? call<PreparedImport>("prepare_import", { selectionId: selection.id })
         : null;
     });
-    if (value) setDialog({ type: "import", value });
+    if (value) setDialog({ type: "import", value, targetProjectId });
   }
   async function finishImport() {
     if (dialog?.type !== "import") return;
+    const targetProjectId = dialog.targetProjectId;
     const result = await run("保存技能快照", async () => {
-      await call("finish_import", { importId: dialog.value.id });
+      const skill = await call<Skill>("finish_import", {
+        importId: dialog.value.id,
+      });
       setDialog(null);
-      return reload();
+      await reload();
+      if (targetProjectId) {
+        const versions = await call<Revision[]>("get_revisions", {
+          skillId: skill.id,
+        });
+        const revision = versions.find((r) => r.id === skill.latestRevisionId);
+        if (!revision)
+          throw new Error(
+            "技能已保存，但无法读取安装版本，请从项目技能库重新选择。",
+          );
+        return { revision };
+      }
+      return { revision: null };
     });
     if (result) {
       setDialog(null);
-      setPage("library");
-      setNotice("技能已保存到本地库，现有项目的版本保持不变。");
+      if (result.revision && targetProjectId) {
+        beginInstall(result.revision, targetProjectId);
+        setNotice("技能已保存，请继续预览当前项目的安装变更。");
+      } else {
+        setPage("library");
+        setNotice("技能已保存到本地库，现有项目的版本保持不变。");
+      }
     }
   }
   async function closeDialog() {
@@ -191,15 +215,15 @@ export default function App() {
       setNotice(`已登记 ${count} 个项目。`);
     }
   }
-  function beginInstall(revision: Revision) {
-    setProjectId(snapshot.projects[0]?.id || "");
-    setDialog({ type: "install", revision });
+  function beginInstall(revision: Revision, targetProjectId?: string) {
+    setProjectId(targetProjectId || snapshot.projects[0]?.id || "");
+    setDialog({ type: "install", revision, targetProjectId });
   }
   async function previewInstall() {
     if (dialog?.type !== "install") return;
     const value = await run("检查项目并生成安装计划", () =>
       call<DeploymentPlan>("preview_deployment", {
-        projectId,
+        projectId: dialog.targetProjectId || projectId,
         revisionId: dialog.revision.id,
         agent,
         mode,
@@ -386,6 +410,11 @@ export default function App() {
                   .map((d) => d.id + d.revisionId)
                   .join(":")}
                 projects={snapshot.projects}
+                selectedProjectId={selectedProjectId}
+                selectProject={setSelectedProjectId}
+                addSkills={(project) =>
+                  setDialog({ type: "project-add", project })
+                }
                 deployments={snapshot.deployments}
                 busy={disabled}
                 run={run}
@@ -448,6 +477,24 @@ export default function App() {
             )}
           </main>
         </div>
+        {dialog?.type === "project-add" && (
+          <ProjectSkillPicker
+            project={dialog.project}
+            skills={snapshot.skills}
+            busy={!!busy}
+            run={run}
+            close={() => void closeDialog()}
+            select={(revision) => beginInstall(revision, dialog.project.id)}
+            importLocal={() => void importLocal(dialog.project.id)}
+            prepared={(value) =>
+              setDialog({
+                type: "import",
+                value,
+                targetProjectId: dialog.project.id,
+              })
+            }
+          />
+        )}
         {dialog?.type === "import" && (
           <Modal
             title="确认导入技能"
@@ -486,7 +533,8 @@ export default function App() {
                 disabled={!!busy}
                 onClick={() => void finishImport()}
               >
-                确认导入 <ArrowRight size={16} />
+                {dialog.targetProjectId ? "导入并继续" : "确认导入"}{" "}
+                <ArrowRight size={16} />
               </button>
             </footer>
           </Modal>
@@ -506,7 +554,7 @@ export default function App() {
                     目标项目
                     <select
                       value={projectId}
-                      disabled={!!busy}
+                      disabled={!!busy || !!dialog.targetProjectId}
                       onChange={(e) => setProjectId(e.target.value)}
                     >
                       {snapshot.projects.map((p) => (

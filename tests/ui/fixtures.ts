@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import type {
   DeploymentPlan,
+  Deployment,
   PreparedImport,
   Project,
   Revision,
@@ -15,6 +16,7 @@ type FixtureOptions = {
   importFailures?: number;
   registrationFailure?: boolean;
   deploymentConflict?: boolean;
+  extraProject?: boolean;
 };
 
 declare global {
@@ -97,6 +99,14 @@ export async function installBackendFixture(
           path: "D:/Example/Askills",
         },
       ];
+      if (options.extraProject)
+        projects.push({
+          id: "project-second",
+          name: "第二个项目",
+          path: "D:/Example/Second",
+        });
+      const deployments: Deployment[] = [];
+      const plans = new Map<string, DeploymentPlan>();
       const documents: Record<string, string> = {
         "skill-rust":
           '# Rust 异步技能\n\n使用 Tokio 管理任务生命周期，清楚地区分并发与并行。\n\n## 实施顺序\n\n1. 为每个任务定义取消边界。\n2. 保留错误上下文。\n3. 验证资源是否释放。\n\n```rust\nlet result = task.await?;\n```\n\n![跟踪图片](https://tracking.invalid/pixel.png)\n\n[外部文档](https://example.invalid/docs)\n\n<script>window.__markdownExecuted = true</script>\n<img src=x onerror="window.__markdownExecuted=true">',
@@ -164,7 +174,7 @@ export async function installBackendFixture(
                 const snapshot: Snapshot = {
                   skills,
                   projects,
-                  deployments: [],
+                  deployments,
                   libraryRoot: "D:/Example/Askills Library",
                   recovery: [],
                 };
@@ -191,6 +201,8 @@ export async function installBackendFixture(
                     .filter((item) => item.skillId === args.skillId)
                     .reverse(),
                 );
+              case "scan_project":
+                return [];
               case "set_skill_display_name": {
                 const skill = skills.find((s) => s.id === args.skillId);
                 if (!skill) throw error("SkillNotFound", "技能不存在");
@@ -240,29 +252,44 @@ export async function installBackendFixture(
                 return structuredClone(next);
               }
               case "preview_deployment": {
+                const revision = revisions.find(
+                  (r) => r.id === args.revisionId,
+                );
+                const skill = skills.find((s) => s.id === revision?.skillId);
+                const project = projects.find((p) => p.id === args.projectId);
+                if (!skill || !project)
+                  throw error("InvalidPlan", "未知项目或技能版本");
                 const plan: DeploymentPlan = {
                   id: "plan-one",
                   projectId: String(args.projectId),
                   revisionId: String(args.revisionId),
-                  skillId: rust.id,
-                  name: rust.name,
+                  skillId: skill.id,
+                  name: skill.name,
                   agent: String(args.agent),
                   mode: String(args.mode),
-                  targetPath:
-                    "D:/Example/Askills/.agents/skills/rust-async-patterns",
+                  targetPath: `${project.path}/.agents/skills/${skill.name}`,
                   previousRevisionId: null,
                   conflict: options.deploymentConflict
                     ? "目标已有非 Askills 管理的目录，不能覆盖。"
                     : null,
                   warnings: [],
                 };
-                return plan;
+                plans.set(plan.id, plan);
+                return structuredClone(plan);
               }
-              case "apply_deployment":
-                throw error(
-                  "UnexpectedMutation",
-                  "测试不允许发生未确认的部署操作",
-                );
+              case "apply_deployment": {
+                const plan = plans.get(String(args.planId));
+                if (!plan || plan.conflict)
+                  throw error("UnexpectedMutation", "未确认或冲突计划");
+                plans.delete(plan.id);
+                const item: Deployment = {
+                  ...plan,
+                  id: "deployment-one",
+                  status: "installed",
+                };
+                deployments.push(item);
+                return structuredClone(item);
+              }
               case "discover_projects":
                 selected.delete(String(args.selectionId));
                 for (const item of discoveries)

@@ -1032,3 +1032,14 @@ code {
     transition: none !important;
   }
 }
+
+.picker-content {
+  padding-top: 22px;
+}
+.picker-list {
+  display: grid;
+  gap: 10px;
+  max-height: 280px;
+  overflow: auto;
+  margin-bottom: 20px;
+}

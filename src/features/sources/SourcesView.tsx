@@ -18,11 +18,13 @@ export function SourcesView({
   run,
   prepared,
   seed,
+  embedded = false,
 }: {
   busy: boolean;
   run: RunOperation;
   prepared: (value: PreparedImport) => void;
   seed: Skill | null;
+  embedded?: boolean;
 }) {
   const [repository, setRepository] = useState(seed?.source.url || "");
   const [reference, setReference] = useState(seed?.source.reference || "");
@@ -53,18 +55,20 @@ export function SourcesView({
   }
   return (
     <>
-      <header className="page-head">
-        <div>
-          <p className="eyebrow">DISCOVER & BRING HOME</p>
-          <h1>来源</h1>
-          <p className="subtitle">
-            从 GitHub 公共仓库获取技能，保存到自己的本地库。
-          </p>
-        </div>
-        <span className="pill">
-          <Github size={15} /> GitHub 公共仓库
-        </span>
-      </header>
+      {!embedded && (
+        <header className="page-head">
+          <div>
+            <p className="eyebrow">DISCOVER & BRING HOME</p>
+            <h1>来源</h1>
+            <p className="subtitle">
+              从 GitHub 公共仓库获取技能，保存到自己的本地库。
+            </p>
+          </div>
+          <span className="pill">
+            <Github size={15} /> GitHub 公共仓库
+          </span>
+        </header>
+      )}
       <section className="source-form">
         <div className="source-title">
           <Github size={24} />

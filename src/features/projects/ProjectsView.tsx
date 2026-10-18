@@ -43,6 +43,9 @@ export function ProjectsView({
   addProject,
   discover,
   changeDeployment,
+  addSkills,
+  selectedProjectId,
+  selectProject,
 }: {
   projects: Project[];
   deployments: Deployment[];
@@ -54,11 +57,14 @@ export function ProjectsView({
     deployment: Deployment,
     action: "remove" | "rollback",
   ) => void;
+  addSkills: (project: Project) => void;
+  selectedProjectId: string;
+  selectProject: (id: string) => void;
 }) {
-  const [selected, setSelected] = useState<Project | null>(null);
+  const selected = projects.find((p) => p.id === selectedProjectId) || null;
   const [entries, setEntries] = useState<DetectedSkill[] | null>(null);
   async function scan(project: Project) {
-    setSelected(project);
+    selectProject(project.id);
     setEntries(null);
     const result = await run("扫描项目技能", () =>
       call<DetectedSkill[]>("scan_project", { projectId: project.id }),
@@ -122,6 +128,14 @@ export function ProjectsView({
           <section className="project-detail">
             <div className="detail-heading">
               <h2>{selected.name}</h2>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => addSkills(selected)}
+              >
+                <FolderPlus size={16} />
+                添加技能
+              </button>
               <button disabled={busy} onClick={() => void scan(selected)}>
                 <RefreshCw size={15} /> 重新扫描
               </button>
