@@ -83,6 +83,34 @@ try {
       ({ command, args }) => window.__TAURI_INTERNALS__.invoke(command, args),
       { command, args },
     );
+  await page.evaluate(() =>
+    document.fonts.load('400 14px "MiSans"', "技能库 ABC 012"),
+  );
+  assert(
+    await page.evaluate(() =>
+      Array.from(document.fonts).some(
+        (font) => font.family === "MiSans" && font.status === "loaded",
+      ),
+    ),
+  );
+  const fontResources = await page.evaluate(() =>
+    performance
+      .getEntriesByType("resource")
+      .filter(
+        (entry) =>
+          entry.name.includes("MiSansVF") && entry.name.includes(".ttf"),
+      )
+      .map((entry) => entry.name),
+  );
+  assert(fontResources.length > 0);
+  assert(
+    fontResources.every(
+      (url) => new URL(url).origin === new URL(page.url()).origin,
+    ),
+  );
+  report.checks.push(
+    "bundled MiSans loaded from the application origin without a font CDN",
+  );
   const snapshot = await invoke("get_snapshot");
   assert.equal(snapshot.skills.length, 0);
   assert.equal(snapshot.projects.length, 0);

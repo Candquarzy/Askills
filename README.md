@@ -14,6 +14,8 @@
 
 应用不会执行 skill 中的脚本。中文界面已经可用，技能内容保留原文。
 
+界面统一使用随应用内置的 MiSans，离线可用；字体原版、许可和来源记录见 [字体说明](third-party/fonts/README.md)。
+
 使用步骤见 **[用户指南](docs/user-guide.md)**；架构、当前实现范围和后续里程碑见 **[详细实现方案](docs/architecture.md)**。
 
 ## 本地开发
@@ -80,4 +82,4 @@ GitHub API 仅支持公共仓库；本地 Git 使用本机已有代理与凭据�
 
 本个人项目日常开发直接在 `main` 提交并推送，无需 PR，参见 [参与开发](CONTRIBUTING.md)。CI 执行前端检查、浏览器测试及 Windows Rust 测试和桌面构建。
 
-Askills 使用 [MIT](LICENSE) 协议。第三方 skills 保留各自的许可与版权声明，依赖遵循各自许可。
+Askills 使用 [MIT](LICENSE) 协议。第三方 skills、MiSans 字体保留各自的许可与版权声明，依赖遵循各自许可。

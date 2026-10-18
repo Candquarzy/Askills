@@ -1,5 +1,5 @@
 :root {
-  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: var(--app-font);
   color: #25352e;
   background: #f7f8f5;
   font-synthesis: none;
@@ -16,7 +16,8 @@ body {
 }
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 button {
@@ -117,7 +118,7 @@ small {
   font-size: 11px;
 }
 code {
-  font-family: Consolas, ui-monospace, monospace;
+  font-family: var(--app-font);
   font-size: 0.9em;
 }
 .muted {
@@ -125,7 +126,7 @@ code {
   font-size: 12px;
 }
 .path {
-  font-family: Consolas, "Microsoft YaHei", monospace;
+  font-family: var(--app-font);
   font-size: 11px;
   color: #596b5c;
   overflow-wrap: anywhere;
@@ -476,10 +477,7 @@ code {
 .raw-document {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font:
-    11px/1.8 Consolas,
-    "Microsoft YaHei",
-    monospace;
+  font: 11px/1.8 var(--app-font);
   background: #f5f7f1;
   padding: 14px;
   border-radius: 5px;
@@ -913,9 +911,7 @@ code {
 }
 .file-diff {
   padding: 0 24px;
-  font:
-    11px/1.8 Consolas,
-    monospace;
+  font: 11px/1.8 var(--app-font);
   overflow-wrap: anywhere;
 }
 .diff-columns {
@@ -1065,6 +1061,16 @@ code {
 .repository-history select {
   width: 100%;
   text-overflow: ellipsis;
+}
+
+.font-license {
+  font-family: var(--app-font);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.8;
+  max-height: 260px;
+  overflow: auto;
 }
 .source-selection-bar > span {
   margin-right: auto;

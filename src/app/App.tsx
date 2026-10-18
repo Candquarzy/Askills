@@ -33,9 +33,11 @@ import { ProjectSkillPicker } from "../features/projects/ProjectSkillPicker";
 import { SourcesView } from "../features/sources/SourcesView";
 import { Modal } from "../components/Modal";
 import { Markdown } from "../components/Markdown";
+import { FontNotice } from "../components/FontNotice";
 import { OperationContext, type OperationProgress } from "./OperationContext";
 import { OperationToast } from "../components/OperationToast";
 import "./styles.css";
+import "./fonts.css";
 
 type Page = "library" | "projects" | "sources" | "settings";
 type Dialog =
@@ -491,6 +493,7 @@ export default function App() {
                   <h2>中文与阅读</h2>
                   <p>界面使用简体中文，技能正文按原文展示。</p>
                 </section>
+                <FontNotice />
               </>
             )}
           </main>
