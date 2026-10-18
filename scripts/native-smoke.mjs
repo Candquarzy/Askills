@@ -375,8 +375,12 @@ try {
       .click();
     await page.getByLabel("分支、标签或 commit（可选）").fill("old-branch");
     await page
-      .getByRole("combobox", { name: "仓库历史记录" })
-      .selectOption(expectedHistory[0]);
+      .getByRole("region", { name: "历史记录（最近10条）" })
+      .getByRole("button", {
+        name: expectedHistory[0].replace("https://github.com/", ""),
+        exact: true,
+      })
+      .click();
     await expect(page.getByLabel("仓库地址")).toHaveValue(expectedHistory[0]);
     await expect(page.getByLabel("分支、标签或 commit（可选）")).toHaveValue(
       "",

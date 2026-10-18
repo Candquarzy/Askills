@@ -54,9 +54,11 @@ test("中英文切换即时生效且重载保留，不覆盖主题与仓库历�
     fullPage: true,
   });
   await navigate(page, "Sources");
-  await expect(page.getByLabel("Repository history")).toContainText(
-    "https://github.com/example/skills",
-  );
+  await expect(
+    page
+      .getByRole("region", { name: "History (last 10)" })
+      .getByRole("button", { name: "example/skills", exact: true }),
+  ).toHaveAttribute("title", "https://github.com/example/skills");
   await navigate(page, "Settings");
   await page
     .getByLabel("Interface language", { exact: true })

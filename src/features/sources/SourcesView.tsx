@@ -1,5 +1,5 @@
 import { useI18n } from "../../app/i18n";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   GitFork as Github,
   ArrowDownToLine,
@@ -38,6 +38,7 @@ export function SourcesView({
 }) {
   const { t, locale } = useI18n();
   const [repository, setRepository] = useState(seed?.source.url || "");
+  const repositoryInput = useRef<HTMLInputElement>(null);
   const [reference, setReference] = useState(seed?.source.reference || "");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [method, setMethod] = useState<"api" | "git">("api");
@@ -262,6 +263,7 @@ export function SourcesView({
           <label className="field">
             {t("仓库地址")}
             <input
+              ref={repositoryInput}
               required
               disabled={busy}
               placeholder="https://github.com/owner/repository"
@@ -272,31 +274,6 @@ export function SourcesView({
               }}
             />
           </label>
-          {!!repositoryHistory.length && (
-            <label className="field repository-history">
-              {t("最近使用的仓库（最多 10 个）")}
-              <select
-                aria-label={t("仓库历史记录")}
-                value=""
-                disabled={busy}
-                onChange={(event) => {
-                  if (!event.target.value) return;
-                  setRepository(event.target.value);
-                  setReference("");
-                  setCatalog(null);
-                }}
-              >
-                <option value="" disabled>
-                  {t("选择历史地址填入上方")}
-                </option>
-                {repositoryHistory.map((address) => (
-                  <option key={address} value={address}>
-                    {address}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <div className="form-inline">
             <label className="field">
               {t("分支、标签或 commit（可选）")}
@@ -431,7 +408,39 @@ export function SourcesView({
           </p>
         </div>
       </div>
-      <section className="source-examples">
+      <section
+        className="source-examples repository-history"
+        aria-label={t("历史记录（最近10条）")}
+      >
+        <h3>{t("历史记录（最近10条）")}</h3>
+        {repositoryHistory.length ? (
+          <div className="example-buttons">
+            {repositoryHistory.map((address) => (
+              <button
+                key={address}
+                disabled={busy}
+                title={address}
+                data-repository={address}
+                onClick={() => {
+                  setRepository(address);
+                  setReference("");
+                  setCatalog(null);
+                  repositoryInput.current?.focus();
+                }}
+              >
+                <Github size={16} />
+                <span>{address.replace(/^https:\/\/github\.com\//i, "")}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="footnote">{t("暂无历史记录")}</p>
+        )}
+      </section>
+      <section
+        className="source-examples"
+        aria-label={t("可以从这些社区仓库开始")}
+      >
         <h3>{t("可以从这些社区仓库开始")}</h3>
         <div className="example-buttons">
           {["wshobson/agents", "fxckcode/tauri-skills"].map((repo) => (

@@ -14,10 +14,10 @@ async function find(page: Page, address: string) {
 }
 async function addresses(page: Page) {
   return page
-    .getByRole("combobox", { name: "仓库历史记录" })
-    .locator("option:not([value=''])")
-    .evaluateAll((options) =>
-      options.map((option) => (option as HTMLOptionElement).value),
+    .getByRole("region", { name: "历史记录（最近10条）" })
+    .getByRole("button")
+    .evaluateAll((buttons) =>
+      buttons.map((button) => button.getAttribute("data-repository")),
     );
 }
 
@@ -28,8 +28,12 @@ test("只保存最近10个仓库，重复地址前移，选择历史不自动查
   await page.goto("/");
   await openSources(page);
   await expect(
-    page.getByRole("combobox", { name: "仓库历史记录" }),
+    page
+      .getByRole("region", { name: "历史记录（最近10条）" })
+      .getByRole("button"),
   ).toHaveCount(0);
+  await expect(page.getByText("暂无历史记录", { exact: true })).toBeVisible();
+  await expect(page.locator(".source-form .repository-history")).toHaveCount(0);
   // Typing alone does not create history entries.
   await page.getByLabel("仓库地址").fill("owner/not-submitted");
   expect(await invocations(page, "remember_repository")).toHaveLength(0);
@@ -49,12 +53,14 @@ test("只保存最近10个仓库，重复地址前移，选择历史不自动查
     .fill("feature/old-repository");
   const before = (await invocations(page, "resolve_github")).length;
   await page
-    .getByRole("combobox", { name: "仓库历史记录" })
-    .selectOption("https://github.com/owner/repo-3");
+    .getByRole("region", { name: "历史记录（最近10条）" })
+    .getByRole("button", { name: "owner/repo-3", exact: true })
+    .click();
   await expect(page.getByLabel("仓库地址")).toHaveValue(
     "https://github.com/owner/repo-3",
   );
   await expect(page.getByLabel("分支、标签或 commit（可选）")).toHaveValue("");
+  await expect(page.getByLabel("仓库地址")).toBeFocused();
   await expect(page.locator(".candidate-row")).toHaveCount(0);
   expect(await invocations(page, "resolve_github")).toHaveLength(before);
   await page.getByRole("button", { name: "本地 Git", exact: true }).click();
@@ -66,6 +72,45 @@ test("只保存最近10个仓库，重复地址前移，选择历史不自动查
   await page.reload();
   await openSources(page);
   expect(await addresses(page)).toEqual(history);
+  const historyRegion = page.getByRole("region", {
+    name: "历史记录（最近10条）",
+  });
+  const recommendations = page.getByRole("region", {
+    name: "可以从这些社区仓库开始",
+  });
+  expect(
+    await historyRegion.evaluate(
+      (element) => element.getBoundingClientRect().top,
+    ),
+  ).toBeGreaterThanOrEqual(
+    await page
+      .locator(".source-note")
+      .evaluate((element) => element.getBoundingClientRect().bottom),
+  );
+  expect(
+    await historyRegion.evaluate(
+      (element) => element.getBoundingClientRect().bottom,
+    ),
+  ).toBeLessThanOrEqual(
+    await recommendations.evaluate(
+      (element) => element.getBoundingClientRect().top,
+    ),
+  );
+  const buttonStyle = (element: HTMLElement | SVGElement) => {
+    const style = getComputedStyle(element);
+    return {
+      fontSize: style.fontSize,
+      padding: style.padding,
+      borderRadius: style.borderRadius,
+      background: style.backgroundColor,
+      color: style.color,
+    };
+  };
+  expect(
+    await historyRegion.getByRole("button").first().evaluate(buttonStyle),
+  ).toEqual(
+    await recommendations.getByRole("button").first().evaluate(buttonStyle),
+  );
   await page.screenshot({
     path: testInfo.outputPath("repository-history.png"),
     fullPage: true,
@@ -104,8 +149,9 @@ test("项目内云端添加与来源页共用历史记录", async ({ page }) => 
   const dialog = page.getByRole("dialog", { name: "为 Askills 示例 添加技能" });
   await dialog.getByRole("tab", { name: "从云端", exact: true }).click();
   await dialog
-    .getByRole("combobox", { name: "仓库历史记录" })
-    .selectOption("https://github.com/example/skills");
+    .getByRole("region", { name: "历史记录（最近10条）" })
+    .getByRole("button", { name: "example/skills", exact: true })
+    .click();
   await expect(dialog.getByLabel("仓库地址")).toHaveValue(
     "https://github.com/example/skills",
   );
