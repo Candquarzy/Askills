@@ -61,7 +61,7 @@ docs/development-skills.md  开发 skills 的来源、安装方式与修改记�
 
 ## 协作与许可
 
-使用分支和 PR 开发，由仓库所有者决定合并。参考 [参与开发](CONTRIBUTING.md)。
+本项目日常开发直接在 `main` 提交并推送，无需 PR。参考 [参与开发](CONTRIBUTING.md)。
 GitHub Actions 配置了前端检查和 Windows 桌面构建；实际通过情况以 Actions 结果为准。
 本轮本地构建与检查的证据、尚未验证内容见 [初始化验证记录](docs/validation.md)。
 
