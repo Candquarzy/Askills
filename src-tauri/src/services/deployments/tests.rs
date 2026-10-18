@@ -54,6 +54,35 @@ impl Fixture {
 }
 
 #[test]
+fn removing_library_and_project_entries_preserves_live_deployments() {
+    let mut fixture = Fixture::new();
+    let installed = fixture.install("auto");
+    let skill = fixture.store.revision(&fixture.revision).unwrap().skill_id;
+    fixture
+        .store
+        .remove_library_skills(&[skill], &AtomicBool::new(false))
+        .unwrap();
+    fixture
+        .store
+        .remove_projects(
+            std::slice::from_ref(&fixture.project.id),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    assert!(fixture.store.list_skills().unwrap().is_empty());
+    assert!(fixture.store.list_projects().unwrap().is_empty());
+    assert_eq!(list(&fixture.store).unwrap()[0].status, "installed");
+    assert!(Path::new(&installed.target_path).join("SKILL.md").is_file());
+    let restored = fixture
+        .store
+        .add_project(Path::new(&fixture.project.path))
+        .unwrap();
+    assert_eq!(restored.id, fixture.project.id);
+    uninstall(&mut fixture.store, &installed.id, &AtomicBool::new(false)).unwrap();
+    assert!(fixture.input.join("SKILL.md").is_file());
+}
+
+#[test]
 fn copy_install_upgrade_rollback_and_uninstall_preserve_originals() {
     let mut fixture = Fixture::new();
     let first = fixture.install("copy");

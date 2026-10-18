@@ -16,6 +16,7 @@ use uuid::Uuid;
 
 mod appearance;
 mod locale;
+mod management;
 mod repository_history;
 pub use appearance::{Appearance, ThemeMode};
 pub use locale::Locale;
@@ -310,6 +311,7 @@ impl Store {
              CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, path_key TEXT NOT NULL UNIQUE, json TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS repository_history(position INTEGER PRIMARY KEY, repository TEXT NOT NULL UNIQUE);
              CREATE TABLE IF NOT EXISTS app_preferences(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS removed_projects(id TEXT PRIMARY KEY REFERENCES projects(id));
              PRAGMA user_version=1;
              COMMIT;"
         )?;
@@ -420,6 +422,8 @@ impl Store {
             .into_iter()
             .map(|text| serde_json::from_str::<Skill>(&text).map_err(AppError::from))
             .collect::<Result<Vec<_>>>()?;
+        let removed = self.removed_skills()?;
+        skills.retain(|skill| !removed.contains(&skill.id));
         skills.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
         Ok(skills)
     }
@@ -660,6 +664,7 @@ impl Store {
         transaction.execute("INSERT OR IGNORE INTO revisions(id,skill_id,hash,source_version,json) VALUES(?1,?2,?3,?4,?5)",
             params![revision.id, skill.id, revision.hash, source_version, serde_json::to_string(&revision)?])?;
         transaction.commit()?;
+        self.restore_skill(&skill.id)?;
         Ok(skill)
     }
 
@@ -823,7 +828,7 @@ impl Store {
     pub fn list_projects(&self) -> Result<Vec<Project>> {
         let json = self
             .conn
-            .prepare("SELECT json FROM projects ORDER BY path_key")?
+            .prepare("SELECT json FROM projects WHERE id NOT IN (SELECT id FROM removed_projects) ORDER BY path_key")?
             .query_map([], |row| row.get::<_, String>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         json.into_iter()
@@ -850,6 +855,8 @@ impl Store {
             })
             .optional()?;
         if let Some(id) = existing {
+            self.conn
+                .execute("DELETE FROM removed_projects WHERE id=?1", [&id])?;
             return self.project(&id);
         }
         let name = canonical
@@ -860,6 +867,7 @@ impl Store {
         let project = Project {
             id: Uuid::new_v4().to_string(),
             name,
+            display_name: None,
             path: display_path(&canonical),
         };
         self.conn.execute(
@@ -886,7 +894,7 @@ impl Store {
 mod tests {
     use super::*;
 
-    fn fixture(root: &Path) -> PathBuf {
+    pub(super) fn fixture(root: &Path) -> PathBuf {
         let path = root.join("中文 skill source");
         fs::create_dir(&path).unwrap();
         fs::write(

@@ -117,6 +117,8 @@ pub struct SkillDocument {
 pub struct Project {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
     pub path: String,
 }
 

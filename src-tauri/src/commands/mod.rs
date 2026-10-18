@@ -266,6 +266,37 @@ pub async fn get_snapshot(state: State<'_, Arc<Runtime>>) -> Result<Snapshot> {
     .await
 }
 #[tauri::command]
+pub async fn remove_library_skills(
+    state: State<'_, Arc<Runtime>>,
+    skill_ids: Vec<String>,
+) -> Result<()> {
+    work(state.inner().clone(), move |w, c| {
+        w.store.remove_library_skills(&skill_ids, c)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn remove_projects(
+    state: State<'_, Arc<Runtime>>,
+    project_ids: Vec<String>,
+) -> Result<()> {
+    work(state.inner().clone(), move |w, c| {
+        w.store.remove_projects(&project_ids, c)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn set_project_display_name(
+    state: State<'_, Arc<Runtime>>,
+    project_id: String,
+    display_name: String,
+) -> Result<Project> {
+    work(state.inner().clone(), move |w, _| {
+        w.store.set_project_display_name(&project_id, &display_name)
+    })
+    .await
+}
+#[tauri::command]
 pub async fn set_locale(
     app: AppHandle,
     state: State<'_, Arc<Runtime>>,
