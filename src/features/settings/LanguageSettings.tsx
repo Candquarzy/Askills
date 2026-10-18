@@ -25,9 +25,7 @@ export function LanguageSettings({
         </select>
       </label>
       <p>{t("可切换中文和英文界面，技能正文按原文展示。")}</p>
-      <p className="footnote">
-        {t("界面语言保存在本地，重启后保留，不需要在线翻译服务。")}
-      </p>
+      <p className="footnote">{t("界面语言保存在本地，重启后保留。")}</p>
     </section>
   );
 }

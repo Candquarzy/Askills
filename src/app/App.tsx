@@ -599,19 +599,6 @@ export default function App() {
                     )}
                   </p>
                 </section>
-                <section className="settings-section">
-                  <h2>{t("项目使用方式")}</h2>
-                  <p>
-                    {t(
-                      "自动模式依次尝试符号链接、Windows 目录 junction 和复制。项目固定使用选定版本，升级前先预览变更。",
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      "Cursor 等工具可能读取共享目录。请结合实际路径判断影响范围。",
-                    )}
-                  </p>
-                </section>
                 <FontNotice />
               </>
             )}
