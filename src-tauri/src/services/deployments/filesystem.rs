@@ -306,11 +306,10 @@ fn remove_entry(path: &Path, entry: &SavedDeployment, partial: bool) -> Result<(
         }
         #[cfg(windows)]
         {
-            if entry.view.mode == "junction" {
-                junction::delete(path).map_err(io)?;
-            } else {
-                fs::remove_dir(path).map_err(io)?;
-            }
+            // RemoveDirectoryW unlinks a directory symlink/junction itself without
+            // following its target. junction::delete only clears reparse data and
+            // leaves an empty directory, which blocks restoring the old entry.
+            fs::remove_dir(path).map_err(io)?;
         }
         #[cfg(unix)]
         fs::remove_file(path).map_err(io)?;
