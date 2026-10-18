@@ -21,6 +21,7 @@ fn main() {
             "resolve_git",
             "get_git_version",
             "prepare_github",
+            "get_download_progress",
             "set_library_root",
             "cancel_operation",
             "get_revision_diff",

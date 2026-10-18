@@ -148,7 +148,7 @@ test("新版本导入后清除旧详情，重新阅读可选最新版本", async
   await expect(page.getByLabel("阅读版本").getByRole("option")).toHaveCount(2);
 });
 
-test("GitHub分支单独传递，选择固定候选后仍需确认导入", async ({ page }) => {
+test("GitHub 分支单独传递，预览固定候选时不写入技能库", async ({ page }) => {
   await installBackendFixture(page);
   await page.goto("/");
   await page
@@ -160,10 +160,8 @@ test("GitHub分支单独传递，选择固定候选后仍需确认导入", async
     .getByLabel("分支、标签或 commit（可选）")
     .fill("feature/rust-patterns");
   await page.getByRole("button", { name: "查找技能" }).click();
-  await page.getByRole("button", { name: "下载并预览" }).click();
-  await expect(
-    page.getByRole("dialog", { name: "确认导入技能" }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "预览", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "预览技能" })).toBeVisible();
   expect((await invocations(page, "resolve_github"))[0].args).toEqual({
     repository: "https://github.com/example/skills",
     reference: "feature/rust-patterns",
@@ -171,6 +169,7 @@ test("GitHub分支单独传递，选择固定候选后仍需确认导入", async
   expect((await invocations(page, "prepare_github"))[0].args).toEqual({
     catalogId: "catalog-one",
     skillPath: "skills/rust",
+    requestId: expect.any(String),
   });
   expect(await invocations(page, "finish_import")).toHaveLength(0);
 });

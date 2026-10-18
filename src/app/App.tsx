@@ -5,12 +5,8 @@ import {
   GitFork as Github,
   Settings2,
   RefreshCw,
-  X,
-  LoaderCircle,
-  Check,
   ArrowRight,
   FolderOpen,
-  TriangleAlert,
 } from "lucide-react";
 import {
   call,
@@ -37,12 +33,18 @@ import { ProjectSkillPicker } from "../features/projects/ProjectSkillPicker";
 import { SourcesView } from "../features/sources/SourcesView";
 import { Modal } from "../components/Modal";
 import { Markdown } from "../components/Markdown";
-import { OperationContext } from "./OperationContext";
+import { OperationContext, type OperationProgress } from "./OperationContext";
+import { OperationToast } from "../components/OperationToast";
 import "./styles.css";
 
 type Page = "library" | "projects" | "sources" | "settings";
 type Dialog =
-  | { type: "import"; value: PreparedImport; targetProjectId?: string }
+  | {
+      type: "import";
+      value: PreparedImport;
+      targetProjectId?: string;
+      remote?: boolean;
+    }
   | { type: "install"; revision: Revision; targetProjectId?: string }
   | { type: "project-add"; project: Project }
   | { type: "plan"; value: DeploymentPlan }
@@ -63,6 +65,7 @@ export default function App() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [progress, setProgress] = useState<OperationProgress | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [sourceSeed, setSourceSeed] = useState<Skill | null>(null);
   const [projectId, setProjectId] = useState("");
@@ -73,11 +76,14 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const initialized = useRef(false);
   const inFlight = useRef(false);
+  const cancelRequested = useRef(false);
   const desktop = isTauri();
   const disabled = !!busy || !desktop || !ready;
   const run: RunOperation = async (label, work) => {
     if (inFlight.current) return;
     inFlight.current = true;
+    cancelRequested.current = false;
+    setProgress(null);
     setBusy(label);
     setError("");
     setNotice("");
@@ -88,6 +94,7 @@ export default function App() {
       return undefined;
     } finally {
       setBusy("");
+      setProgress(null);
       inFlight.current = false;
     }
   };
@@ -118,6 +125,7 @@ export default function App() {
   async function finishImport() {
     if (dialog?.type !== "import") return;
     const targetProjectId = dialog.targetProjectId;
+    const remote = dialog.remote;
     const result = await run("保存技能快照", async () => {
       const skill = await call<Skill>("finish_import", {
         importId: dialog.value.id,
@@ -143,9 +151,25 @@ export default function App() {
         beginInstall(result.revision, targetProjectId);
         setNotice("技能已保存，请继续预览当前项目的安装变更。");
       } else {
-        setPage("library");
+        if (!remote) setPage("library");
         setNotice("技能已保存到本地库，现有项目的版本保持不变。");
       }
+    }
+  }
+  function recordDownloads(skills: Skill[], targetProjectId?: string) {
+    setSnapshot((current) => {
+      const updated = new Map(current.skills.map((s) => [s.id, s]));
+      for (const skill of skills) updated.set(skill.id, skill);
+      return { ...current, skills: [...updated.values()] };
+    });
+    if (targetProjectId && skills.length === 1) {
+      const skill = skills[0];
+      void run("读取项目安装版本", () =>
+        call<Revision[]>("get_revisions", { skillId: skill.id }),
+      ).then((versions) => {
+        const revision = versions?.find((r) => r.id === skill.latestRevisionId);
+        if (revision) beginInstall(revision, targetProjectId);
+      });
     }
   }
   async function closeDialog() {
@@ -294,12 +318,28 @@ export default function App() {
     { id: "settings", title: "设置", Icon: Settings2 },
   ] as const;
   function cancel() {
+    cancelRequested.current = true;
     void call("cancel_operation")
       .then(() => setNotice("已请求取消；正在完成当前安全步骤。"))
       .catch((e) => setError(errorMessage(e)));
   }
   return (
-    <OperationContext value={{ error, busy, cancel }}>
+    <OperationContext
+      value={{
+        error,
+        busy,
+        notice,
+        cancel,
+        progress,
+        reportProgress: setProgress,
+        notify: setNotice,
+        fail: setError,
+        isCancellationRequested: () => cancelRequested.current,
+        dismissError: () => setError(""),
+        dismissNotice: () => setNotice(""),
+      }}
+    >
+      <OperationToast />
       <div className="app-shell">
         <aside className="sidebar">
           <div className="brand">
@@ -342,38 +382,10 @@ export default function App() {
               <RefreshCw size={15} /> 刷新
             </button>
           </header>
-          {busy && !dialog && (
-            <div className="task-status" role="status">
-              <LoaderCircle size={17} className="spin" />
-              <span>{busy}…</span>
-              <button className="text-button" onClick={cancel}>
-                取消操作
-              </button>
-            </div>
-          )}
           {!desktop && (
             <div className="banner">
               当前为浏览器预览。运行 <code>pnpm tauri dev</code>{" "}
               使用本地技能管理功能。
-            </div>
-          )}
-          {error && !dialog && (
-            <div className="error-banner" role="alert">
-              <TriangleAlert size={18} />
-              <span>{error}</span>
-              <button
-                aria-label="关闭错误提示"
-                className="icon-button"
-                onClick={() => setError("")}
-              >
-                <X size={17} />
-              </button>
-            </div>
-          )}
-          {notice && (
-            <div className="success-banner" role="status">
-              <Check size={17} />
-              <span>{notice}</span>
             </div>
           )}
           {snapshot.recovery.map((message) => (
@@ -429,7 +441,10 @@ export default function App() {
               <SourcesView
                 busy={disabled}
                 run={run}
-                prepared={(value) => setDialog({ type: "import", value })}
+                prepared={(value) =>
+                  setDialog({ type: "import", value, remote: true })
+                }
+                downloaded={(values) => recordDownloads(values)}
                 seed={sourceSeed}
               />
             )}
@@ -483,6 +498,12 @@ export default function App() {
             skills={snapshot.skills}
             busy={!!busy}
             run={run}
+            downloaded={(values, continueToProject) =>
+              recordDownloads(
+                values,
+                continueToProject ? dialog.project.id : undefined,
+              )
+            }
             close={() => void closeDialog()}
             select={(revision) => beginInstall(revision, dialog.project.id)}
             importLocal={() => void importLocal(dialog.project.id)}
@@ -491,13 +512,14 @@ export default function App() {
                 type: "import",
                 value,
                 targetProjectId: dialog.project.id,
+                remote: true,
               })
             }
           />
         )}
         {dialog?.type === "import" && (
           <Modal
-            title="确认导入技能"
+            title={dialog.remote ? "预览技能" : "确认导入技能"}
             busy={!!busy}
             close={() => void closeDialog()}
             wide
@@ -533,7 +555,11 @@ export default function App() {
                 disabled={!!busy}
                 onClick={() => void finishImport()}
               >
-                {dialog.targetProjectId ? "导入并继续" : "确认导入"}{" "}
+                {dialog.targetProjectId
+                  ? "导入并继续"
+                  : dialog.remote
+                    ? "下载到技能库"
+                    : "确认导入"}{" "}
                 <ArrowRight size={16} />
               </button>
             </footer>

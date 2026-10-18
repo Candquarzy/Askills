@@ -1,4 +1,5 @@
 use super::*;
+use std::cell::RefCell;
 
 static CANCEL: AtomicBool = AtomicBool::new(false);
 
@@ -21,6 +22,11 @@ fn fixture() -> (TempDir, Checkout) {
     .unwrap();
     fs::write(
         work.path().join("skills/example/references/guide.md"),
+        "raw\r\nbytes\n",
+    )
+    .unwrap();
+    fs::write(
+        work.path().join("skills/example/references/copy.md"),
         "raw\r\nbytes\n",
     )
     .unwrap();
@@ -86,7 +92,11 @@ fn local_git_preserves_raw_files_license_and_pinned_commit_without_worktree_chec
     )
     .unwrap();
     commit(work.path());
-    let download = download(&resolved, "skills/example", &CANCEL).unwrap();
+    let events = RefCell::new(Vec::new());
+    let download = download_with_progress(&resolved, "skills/example", &CANCEL, &|event| {
+        events.borrow_mut().push(event);
+    })
+    .unwrap();
     assert_eq!(
         fs::read(download.skill_path.join("references/guide.md")).unwrap(),
         b"raw\r\nbytes\n"
@@ -97,6 +107,29 @@ fn local_git_preserves_raw_files_license_and_pinned_commit_without_worktree_chec
     );
     assert_eq!(download.source.commit, Some(pinned));
     crate::services::library::inspect_skill(&download.skill_path, &CANCEL).unwrap();
+    let events = events.into_inner();
+    assert_eq!(events[0].completed_files, 0);
+    assert_eq!(events[0].completed_bytes, 0);
+    let finished = events.last().unwrap();
+    assert_eq!(finished.completed_files, 4);
+    assert_eq!(finished.total_files, 4);
+    let expected_bytes: u64 = [
+        "SKILL.md",
+        "references/guide.md",
+        "references/copy.md",
+        ".askills-source-licenses/LICENSE",
+    ]
+    .iter()
+    .map(|file| fs::metadata(download.skill_path.join(file)).unwrap().len())
+    .sum();
+    assert_eq!(finished.completed_bytes, expected_bytes);
+    assert_eq!(finished.total_bytes, expected_bytes);
+    assert!(
+        events
+            .windows(2)
+            .all(|pair| pair[0].completed_files <= pair[1].completed_files
+                && pair[0].completed_bytes <= pair[1].completed_bytes)
+    );
 }
 
 #[test]
@@ -152,9 +185,50 @@ fn git_preview_rejects_changed_blob_data_and_releases_private_checkout() {
         .find(|e| e.path.ends_with("guide.md"))
         .unwrap();
     file.sha = "0".repeat(40);
-    assert!(download(&resolved, "skills/example", &CANCEL).is_err());
+    let events = RefCell::new(Vec::new());
+    assert!(
+        download_with_progress(&resolved, "skills/example", &CANCEL, &|event| {
+            events.borrow_mut().push(event);
+        })
+        .is_err()
+    );
+    assert!(
+        events
+            .borrow()
+            .iter()
+            .all(|event| event.completed_files < event.total_files)
+    );
     drop(resolved);
     assert!(!root.exists());
+}
+
+#[test]
+fn local_git_download_progress_cancels_before_the_next_file() {
+    let (_work, checkout) = fixture();
+    let resolved = from_checkout(
+        checkout,
+        parse_repository("owner/repo").unwrap(),
+        "main".into(),
+        &CANCEL,
+    )
+    .unwrap();
+    let cancel = AtomicBool::new(false);
+    let events = RefCell::new(Vec::new());
+    let error = download_with_progress(&resolved, "skills/example", &cancel, &|event| {
+        if event.completed_files == 1 {
+            cancel.store(true, Ordering::Relaxed);
+        }
+        events.borrow_mut().push(event);
+    })
+    .unwrap_err();
+    assert_eq!(error.code, "cancelled");
+    let events = events.into_inner();
+    assert_eq!(events.last().unwrap().completed_files, 1);
+    assert!(
+        events
+            .iter()
+            .all(|event| event.completed_files < event.total_files)
+    );
 }
 
 #[test]

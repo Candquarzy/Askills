@@ -65,6 +65,31 @@ pub struct Download {
     pub source: SkillSource,
 }
 
+/// Counts validated files written to the private stage, including source licenses.
+/// This measures completed download work, not network transfer or library import.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub completed_files: usize,
+    pub total_files: usize,
+    pub completed_bytes: u64,
+    pub total_bytes: u64,
+    pub current_file: String,
+}
+
+impl DownloadProgress {
+    fn new(files: &[PlannedFile<'_>]) -> Self {
+        Self {
+            completed_files: 0,
+            total_files: files.len(),
+            completed_bytes: 0,
+            // plan_download has already checked presence, limits and overflow.
+            total_bytes: files.iter().map(|file| file.entry.size.unwrap_or(0)).sum(),
+            current_file: String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Repository {
     owner: String,
@@ -126,7 +151,16 @@ pub fn resolve(repository: &str, reference: &str, cancel: &AtomicBool) -> Result
 
 /// Download a candidate from an already resolved, backend-owned catalog.
 pub fn download(catalog: &Catalog, skill_path: &str, cancel: &AtomicBool) -> Result<Download> {
-    download_with(&GitHubApi::new()?, catalog, skill_path, cancel)
+    download_with_progress(catalog, skill_path, cancel, &|_| {})
+}
+
+pub fn download_with_progress(
+    catalog: &Catalog,
+    skill_path: &str,
+    cancel: &AtomicBool,
+    progress: &dyn Fn(DownloadProgress),
+) -> Result<Download> {
+    download_using_transport(&GitHubApi::new()?, catalog, skill_path, cancel, progress)
 }
 
 /// This trait is private; no production API accepts a configurable HTTP origin.
@@ -741,23 +775,39 @@ fn is_ancestor_license(path: &str, skill_path: &str) -> bool {
                 .is_some_and(|suffix| suffix.starts_with('/')))
 }
 
+#[cfg(test)]
 fn download_with(
     transport: &impl Transport,
     catalog: &Catalog,
     skill_path: &str,
     cancel: &AtomicBool,
 ) -> Result<Download> {
+    download_using_transport(transport, catalog, skill_path, cancel, &|_| {})
+}
+
+fn download_using_transport(
+    transport: &impl Transport,
+    catalog: &Catalog,
+    skill_path: &str,
+    cancel: &AtomicBool,
+    progress: &dyn Fn(DownloadProgress),
+) -> Result<Download> {
     check_cancel(cancel)?;
     let files = plan_download(catalog, skill_path)?;
+    let mut completed = DownloadProgress::new(&files);
     let directory = tempfile::Builder::new()
         .prefix("askills-github-")
         .tempdir()
         .map_err(|_| AppError::new("github_stage", "无法创建 skill 下载临时目录"))?;
     let stage = directory.path().join("skill");
     fs::create_dir(&stage).map_err(|_| AppError::new("github_stage", "无法创建 skill 暂存目录"))?;
+    progress(completed.clone());
     // Deduplicate content requests without retaining more than the 32 MiB skill limit.
     let mut blobs = BTreeMap::new();
     for file in files {
+        check_cancel(cancel)?;
+        completed.current_file.clone_from(&file.destination);
+        progress(completed.clone());
         check_cancel(cancel)?;
         let content = match blobs.entry(file.entry.sha.clone()) {
             Entry::Vacant(entry) => {
@@ -786,8 +836,11 @@ fn download_with(
             ));
         }
         write_stage_file(&stage, &file.destination, content, &file.entry.mode)?;
+        check_cancel(cancel)?;
+        completed.completed_files += 1;
+        completed.completed_bytes += content.len() as u64;
+        progress(completed.clone());
     }
-    check_cancel(cancel)?;
     Ok(Download {
         directory,
         skill_path: stage,

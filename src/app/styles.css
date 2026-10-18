@@ -1049,6 +1049,49 @@ code {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.source-selection-bar,
+.candidate-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.source-selection-bar {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.source-selection-bar > span {
+  margin-right: auto;
+}
+.candidate-row > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+.candidate-selected {
+  background: var(--surface-alt, #f1f6ed);
+}
+.candidate-actions {
+  flex-shrink: 0;
+}
+.candidate-actions [aria-pressed="true"] {
+  background: #e3eddd;
+  border-color: #849d72;
+}
+.candidate-error {
+  color: #a33d31;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  max-width: 600px;
+}
+@media (max-width: 800px) {
+  .candidate-row {
+    flex-wrap: wrap;
+  }
+  .candidate-actions {
+    width: 100%;
+  }
+}
 .source-method-note {
   margin-bottom: 22px;
 }

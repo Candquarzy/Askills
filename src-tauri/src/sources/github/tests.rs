@@ -355,6 +355,131 @@ fn downloads_complete_skill_preserves_distinct_licenses_and_provenance() {
 }
 
 #[test]
+fn download_progress_counts_staged_files_licenses_shared_blobs_and_empty_files() {
+    let document = b"skill document";
+    let license = b"root license";
+    let entries = vec![
+        blob("LICENSE", license),
+        dir("skills"),
+        dir("skills/a"),
+        blob("skills/a/SKILL.md", document),
+        blob("skills/a/copy.md", document),
+        blob("skills/a/empty.txt", b""),
+    ];
+    let fixture = resolve_fixture(&entries, "main");
+    let catalog = resolve_with(&fixture, "owner/skills", "main", &CANCEL).unwrap();
+    // Shared blobs are fetched once but count once per file written to the stage.
+    for content in [license.as_slice(), document.as_slice(), b""] {
+        add_blob(&fixture, content);
+    }
+    let events = RefCell::new(Vec::new());
+    let downloaded = download_using_transport(&fixture, &catalog, "skills/a", &CANCEL, &|event| {
+        events.borrow_mut().push(event)
+    })
+    .unwrap();
+    let events = events.into_inner();
+    let total = (license.len() + document.len() * 2) as u64;
+    assert_eq!(events[0].completed_files, 0);
+    assert_eq!(events[0].completed_bytes, 0);
+    assert!(events[0].current_file.is_empty());
+    for event in &events {
+        assert_eq!(event.total_files, 4);
+        assert_eq!(event.total_bytes, total);
+        assert!(event.completed_files <= 4);
+        assert!(event.completed_bytes <= total);
+    }
+    for pair in events.windows(2) {
+        assert!(pair[0].completed_files <= pair[1].completed_files);
+        assert!(pair[0].completed_bytes <= pair[1].completed_bytes);
+    }
+    let finished = events.last().unwrap();
+    assert_eq!(finished.completed_files, 4);
+    assert_eq!(finished.completed_bytes, total);
+    assert_eq!(finished.current_file, "empty.txt");
+    assert_eq!(
+        fs::read(downloaded.skill_path.join("copy.md")).unwrap(),
+        document
+    );
+    assert!(downloaded.skill_path.join("empty.txt").is_file());
+    assert!(
+        events
+            .iter()
+            .any(|event| event.current_file == format!("{LICENSE_DIRECTORY}/LICENSE"))
+    );
+    let json = serde_json::to_value(finished).unwrap();
+    assert_eq!(json["completedFiles"], 4);
+    assert_eq!(json["totalBytes"], total);
+    fixture.assert_finished();
+}
+
+#[test]
+fn failed_blob_never_reports_completed_download_progress() {
+    let fixture = resolve_fixture(
+        &[blob("LICENSE", b"license"), blob("SKILL.md", b"good")],
+        "main",
+    );
+    let catalog = resolve_with(&fixture, "owner/skills", "main", &CANCEL).unwrap();
+    add_blob(&fixture, b"license");
+    let sha = blob_sha(b"good");
+    fixture.add(
+        &["repos", "owner", "skills", "git", "blobs", &sha],
+        &[],
+        json!({"sha":sha,"size":4,"encoding":"base64","content":STANDARD.encode(b"evil")}),
+    );
+    let events = RefCell::new(Vec::new());
+    let error = download_using_transport(&fixture, &catalog, "", &CANCEL, &|event| {
+        events.borrow_mut().push(event);
+    })
+    .unwrap_err();
+    assert_eq!(error.code, "github_blob_integrity");
+    let events = events.into_inner();
+    assert_eq!(events.last().unwrap().completed_files, 1);
+    assert_eq!(events.last().unwrap().completed_bytes, 7);
+    assert!(
+        events
+            .iter()
+            .all(|event| event.completed_files < event.total_files)
+    );
+    fixture.assert_finished();
+}
+
+#[test]
+fn progress_cancellation_stops_before_next_file_without_reporting_completion() {
+    let fixture = resolve_fixture(
+        &[blob("LICENSE", b"license"), blob("SKILL.md", b"skill")],
+        "main",
+    );
+    let catalog = resolve_with(&fixture, "owner/skills", "main", &CANCEL).unwrap();
+    add_blob(&fixture, b"license");
+    let cancel = AtomicBool::new(false);
+    let events = RefCell::new(Vec::new());
+    let error = download_using_transport(&fixture, &catalog, "", &cancel, &|event| {
+        if event.completed_files == 1 {
+            cancel.store(true, Ordering::Relaxed);
+        }
+        events.borrow_mut().push(event);
+    })
+    .unwrap_err();
+    assert_eq!(error.code, "cancelled");
+    let events = events.into_inner();
+    assert_eq!(events.last().unwrap().completed_files, 1);
+    assert!(
+        events
+            .iter()
+            .all(|event| event.completed_files < event.total_files)
+    );
+    fixture.assert_finished();
+    let events = RefCell::new(Vec::new());
+    assert!(
+        download_using_transport(&fixture, &catalog, "", &cancel, &|event| {
+            events.borrow_mut().push(event);
+        })
+        .is_err()
+    );
+    assert!(events.borrow().is_empty());
+}
+
+#[test]
 fn root_candidate_does_not_duplicate_repository_license() {
     let entries = vec![blob("SKILL.md", b"skill"), blob("LICENSE", b"license")];
     let fixture = resolve_fixture(&entries, "main");

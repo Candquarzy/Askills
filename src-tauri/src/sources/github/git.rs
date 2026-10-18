@@ -409,15 +409,30 @@ fn parse_tree(bytes: &[u8], sha: String) -> Result<TreeResponse> {
 }
 
 pub fn download(resolved: &GitCatalog, skill_path: &str, cancel: &AtomicBool) -> Result<Download> {
+    download_with_progress(resolved, skill_path, cancel, &|_| {})
+}
+
+pub fn download_with_progress(
+    resolved: &GitCatalog,
+    skill_path: &str,
+    cancel: &AtomicBool,
+    progress: &dyn Fn(DownloadProgress),
+) -> Result<Download> {
+    check_cancel(cancel)?;
     let catalog = &resolved.catalog;
     let files = plan_download(catalog, skill_path)?;
+    let mut completed = DownloadProgress::new(&files);
     let directory = tempfile::Builder::new()
         .prefix("askills-git-skill-")
         .tempdir()?;
     let stage = directory.path().join("skill");
     fs::create_dir(&stage)?;
+    progress(completed.clone());
     let mut blobs = BTreeMap::new();
     for file in files {
+        check_cancel(cancel)?;
+        completed.current_file.clone_from(&file.destination);
+        progress(completed.clone());
         check_cancel(cancel)?;
         let content = match blobs.entry(file.entry.sha.clone()) {
             Entry::Vacant(entry) => {
@@ -438,9 +453,18 @@ pub fn download(resolved: &GitCatalog, skill_path: &str, cancel: &AtomicBool) ->
             }
             Entry::Occupied(entry) => entry.into_mut(),
         };
+        if content.len() as u64 != file.entry.size.unwrap_or(u64::MAX) {
+            return Err(AppError::new(
+                "github_blob_size",
+                "相同内容 SHA 对应了不一致的文件大小",
+            ));
+        }
         write_stage_file(&stage, &file.destination, content, &file.entry.mode)?;
+        check_cancel(cancel)?;
+        completed.completed_files += 1;
+        completed.completed_bytes += content.len() as u64;
+        progress(completed.clone());
     }
-    check_cancel(cancel)?;
     Ok(Download {
         directory,
         skill_path: stage,

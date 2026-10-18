@@ -20,6 +20,7 @@ export function ProjectSkillPicker({
   select,
   importLocal,
   prepared,
+  downloaded,
 }: {
   project: Project;
   skills: Skill[];
@@ -29,6 +30,7 @@ export function ProjectSkillPicker({
   select: (revision: Revision) => void;
   importLocal: () => void;
   prepared: (value: PreparedImport) => void;
+  downloaded: (values: Skill[], continueToProject: boolean) => void;
 }) {
   const [tab, setTab] = useState("library");
   const [query, setQuery] = useState("");
@@ -135,6 +137,7 @@ export function ProjectSkillPicker({
               busy={busy}
               run={run}
               prepared={prepared}
+              downloaded={downloaded}
               seed={null}
               embedded
             />

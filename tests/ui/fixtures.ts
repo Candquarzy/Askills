@@ -18,6 +18,9 @@ type FixtureOptions = {
   deploymentConflict?: boolean;
   extraProject?: boolean;
   gitUnavailable?: boolean;
+  sourceCandidateCount?: number;
+  downloadDelayMs?: number;
+  downloadFailures?: Record<string, number>;
 };
 
 declare global {
@@ -29,7 +32,11 @@ declare global {
         args: Record<string, unknown>,
       ) => Promise<unknown>;
     };
-    __ASKILLS_TEST__: { invocations: Invocation[]; committedImports: number };
+    __ASKILLS_TEST__: {
+      invocations: Invocation[];
+      committedImports: number;
+      committedSkillPaths: string[];
+    };
     __markdownExecuted?: boolean;
   }
 }
@@ -114,7 +121,11 @@ export async function installBackendFixture(
         "skill-security":
           "# Tauri 安全检查\n\n仅授权必要的本地接口，校验所有跨进程输入。",
       };
-      const state = { invocations: [] as Invocation[], committedImports: 0 };
+      const state = {
+        invocations: [] as Invocation[],
+        committedImports: 0,
+        committedSkillPaths: [] as string[],
+      };
       window.__ASKILLS_TEST__ = state;
       window.isTauri = true;
       let failedImports = 0;
@@ -122,6 +133,38 @@ export async function installBackendFixture(
       let selectionNumber = 0;
       let previewNumber = 0;
       let operationInFlight = false;
+      let downloadCancelled = false;
+      const downloadAttempts = new Map<string, number>();
+      const progress = new Map<
+        string,
+        {
+          completedFiles: number;
+          totalFiles: number;
+          completedBytes: number;
+          totalBytes: number;
+          currentFile: string;
+          stage: "download";
+        }
+      >();
+      const sourceCandidates = Array.from(
+        { length: options.sourceCandidateCount ?? 1 },
+        (_, index) => ({
+          path:
+            index === 0
+              ? "skills/rust"
+              : index === 1
+                ? "skills/tauri-security"
+                : `skills/example-${index + 1}`,
+          name:
+            index === 0
+              ? rust.name
+              : index === 1
+                ? security.name
+                : `example-skill-${index + 1}`,
+          fileCount: 4,
+          totalBytes: 4096,
+        }),
+      );
       const selected = new Map<string, string>();
       const previews = new Map<string, PreparedImport>();
       const discoveries = [
@@ -139,18 +182,35 @@ export async function installBackendFixture(
         },
       ];
       const error = (code: string, message: string) => ({ code, message });
+      const sourceSkill = (source: Skill["source"] | null): Skill => {
+        if (!source?.subpath || source.subpath === "skills/rust") return rust;
+        if (source.subpath === "skills/tauri-security") return security;
+        const candidate = sourceCandidates.find(
+          (item) => item.path === source.subpath,
+        )!;
+        return {
+          ...rust,
+          id: `skill-${candidate.name}`,
+          name: candidate.name,
+          description: `测试 ${candidate.name} 的独立导入。`,
+          latestRevisionId: `revision-${candidate.name}-1`,
+        };
+      };
       const prepare = (source: Skill["source"] | null): PreparedImport => {
+        const skill = sourceSkill(source);
         const value: PreparedImport = {
           id: `preview-${++previewNumber}`,
           source,
           preview: {
-            name: rust.name,
-            description: rust.description,
+            name: skill.name,
+            description: skill.description,
             license: "MIT",
             hash: "d".repeat(64),
             fileCount: 4,
             totalBytes: 4096,
-            markdown: documents["skill-rust"],
+            markdown:
+              documents[skill.id] ||
+              `# ${skill.name}\n\nRead the reference before running this skill.`,
             warnings: [],
           },
         };
@@ -162,8 +222,10 @@ export async function installBackendFixture(
         invoke: async (command, args = {}) => {
           state.invocations.push({ command, args });
           const isCancellation = command === "cancel_operation";
+          const bypassBusy =
+            isCancellation || command === "get_download_progress";
           // Mirror the native global busy gate so accidental Promise.all IPC fails.
-          if (!isCancellation) {
+          if (!bypassBusy) {
             if (operationInFlight)
               throw error("Busy", "模拟后端拒绝并发 IPC 操作");
             operationInFlight = true;
@@ -230,15 +292,20 @@ export async function installBackendFixture(
                 if (failedImports++ < (options.importFailures || 0))
                   throw error("PermissionDenied", "模拟写入失败，请重试");
                 state.committedImports++;
-                const current = skills.find((skill) => skill.id === rust.id);
+                state.committedSkillPaths.push(
+                  preview.source?.subpath || "local",
+                );
+                const base = sourceSkill(preview.source);
+                const current = skills.find((skill) => skill.id === base.id);
                 const nextNumber = current ? current.revisionCount + 1 : 1;
-                const next = {
-                  ...rust,
+                const next: Skill = {
+                  ...base,
+                  source: preview.source || base.source,
                   displayName: current?.displayName || null,
                   revisionCount: nextNumber,
-                  latestRevisionId: `revision-rust-${nextNumber}`,
+                  latestRevisionId: `revision-${base.id.slice(6)}-${nextNumber}`,
                 };
-                const index = skills.findIndex((skill) => skill.id === rust.id);
+                const index = skills.findIndex((skill) => skill.id === base.id);
                 if (index >= 0) skills[index] = next;
                 else skills.push(next);
                 if (
@@ -247,8 +314,11 @@ export async function installBackendFixture(
                   revisions.push({
                     ...revisions[0],
                     id: next.latestRevisionId,
+                    skillId: next.id,
+                    source: next.source,
                     hash: "d".repeat(64),
                   });
+                documents[next.id] = preview.preview.markdown;
                 previews.delete(preview.id);
                 return structuredClone(next);
               }
@@ -347,37 +417,81 @@ export async function installBackendFixture(
                   repository: String(args.repository),
                   reference: String(args.reference),
                   commit: "e".repeat(40),
-                  candidates: [
-                    {
-                      path: "skills/rust",
-                      name: "rust-async-patterns",
-                      fileCount: 4,
-                      totalBytes: 4096,
-                    },
-                  ],
+                  candidates: sourceCandidates,
                 };
-              case "prepare_github":
+              case "prepare_github": {
+                const skillPath = String(args.skillPath);
                 if (
                   !["catalog-one", "catalog-git"].includes(
                     String(args.catalogId),
                   ) ||
-                  args.skillPath !== "skills/rust"
+                  !sourceCandidates.some(
+                    (candidate) => candidate.path === skillPath,
+                  )
                 )
                   throw error("InvalidCandidate", "未知技能候选");
+                if (typeof args.requestId !== "string" || !args.requestId)
+                  throw error("InvalidRequestId", "下载必须关联独立进度请求");
+                const requestId = args.requestId;
+                const attempt = (downloadAttempts.get(skillPath) || 0) + 1;
+                downloadAttempts.set(skillPath, attempt);
+                downloadCancelled = false;
+                const fileNames = [
+                  "SKILL.md",
+                  "references/guide.md",
+                  "scripts/example.sh",
+                  ".askills-source-licenses/LICENSE",
+                ];
+                progress.set(requestId, {
+                  completedFiles: 0,
+                  totalFiles: 4,
+                  completedBytes: 0,
+                  totalBytes: 4096,
+                  currentFile: fileNames[0],
+                  stage: "download",
+                });
+                for (let index = 0; index < fileNames.length; index++) {
+                  await new Promise((resolve) =>
+                    setTimeout(resolve, (options.downloadDelayMs || 0) / 4),
+                  );
+                  if (downloadCancelled) throw error("cancelled", "下载已取消");
+                  if (
+                    index === 1 &&
+                    attempt <= (options.downloadFailures?.[skillPath] || 0)
+                  )
+                    throw error(
+                      "DownloadFailed",
+                      `${skillPath} 模拟下载失败，请重试`,
+                    );
+                  progress.set(requestId, {
+                    completedFiles: index + 1,
+                    totalFiles: 4,
+                    completedBytes: (index + 1) * 1024,
+                    totalBytes: 4096,
+                    currentFile: fileNames[index],
+                    stage: "download",
+                  });
+                }
                 return structuredClone(
                   prepare({
                     ...security.source,
                     commit: "e".repeat(40),
-                    subpath: "skills/rust",
+                    subpath: skillPath,
                   }),
                 );
+              }
+              case "get_download_progress":
+                return structuredClone(
+                  progress.get(String(args.requestId)) || null,
+                );
               case "cancel_operation":
+                downloadCancelled = true;
                 return null;
               default:
                 throw error("UnexpectedCommand", `测试未定义 IPC：${command}`);
             }
           } finally {
-            if (!isCancellation) operationInFlight = false;
+            if (!bypassBusy) operationInFlight = false;
           }
         },
       };

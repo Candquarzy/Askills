@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { installBackendFixture, invocations } from "./fixtures";
 
-test("切换来源方式清除旧候选，本地 Git 检测和下载保持确认步骤", async ({
+test("切换来源方式清除旧候选，本地 Git 检测和预览不直接入库", async ({
   page,
 }, testInfo) => {
   await installBackendFixture(page);
@@ -31,10 +31,8 @@ test("切换来源方式清除旧候选，本地 Git 检测和下载保持确认
     path: testInfo.outputPath("local-git-source.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "下载并预览" }).click();
-  await expect(
-    page.getByRole("dialog", { name: "确认导入技能" }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "预览", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "预览技能" })).toBeVisible();
   expect((await invocations(page, "prepare_github"))[0].args.catalogId).toBe(
     "catalog-git",
   );

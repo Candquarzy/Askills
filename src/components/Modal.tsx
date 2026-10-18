@@ -1,6 +1,5 @@
-import { useContext, useEffect, useRef, type ReactNode } from "react";
-import { LoaderCircle, TriangleAlert, X } from "lucide-react";
-import { OperationContext } from "../app/OperationContext";
+import { useEffect, useRef, type ReactNode } from "react";
+import { X } from "lucide-react";
 
 export function Modal({
   title,
@@ -16,7 +15,6 @@ export function Modal({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const operation = useContext(OperationContext);
   useEffect(() => {
     const node = ref.current;
     node?.showModal();
@@ -43,21 +41,6 @@ export function Modal({
           <X size={18} />
         </button>
       </header>
-      {operation.error && (
-        <div className="error-banner" role="alert">
-          <TriangleAlert size={18} />
-          <span>{operation.error}</span>
-        </div>
-      )}
-      {operation.busy && (
-        <div className="task-status" role="status">
-          <LoaderCircle size={17} className="spin" />
-          <span>{operation.busy}…</span>
-          <button className="text-button" onClick={operation.cancel}>
-            取消操作
-          </button>
-        </div>
-      )}
       {children}
     </dialog>
   );

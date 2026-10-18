@@ -35,7 +35,7 @@ for (const [source, git] of [
           .getByLabel("仓库地址")
           .fill("https://github.com/example/skills");
         await picker.getByRole("button", { name: "查找技能" }).click();
-        await picker.getByRole("button", { name: "下载并预览" }).click();
+        await picker.getByRole("button", { name: "预览", exact: true }).click();
       }
       expect(await invocations(page, "apply_deployment")).toHaveLength(0);
       await page.getByRole("button", { name: "导入并继续" }).click();
@@ -59,3 +59,80 @@ for (const [source, git] of [
     );
   });
 }
+
+test("项目云端直接下载单个技能后进入当前项目安装预览", async ({ page }) => {
+  await installBackendFixture(page, {
+    extraProject: true,
+    downloadDelayMs: 400,
+  });
+  await page.goto("/");
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: /^项目/ })
+    .click();
+  await page.getByRole("button", { name: /第二个项目 D:/ }).click();
+  await page.getByRole("button", { name: "添加技能", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "为 第二个项目 添加技能" });
+  await picker.getByRole("tab", { name: "从云端", exact: true }).click();
+  await picker.getByLabel("仓库地址").fill("https://github.com/example/skills");
+  await picker.getByRole("button", { name: "查找技能" }).click();
+  await picker.getByRole("button", { name: "下载", exact: true }).click();
+  await expect(picker.getByRole("status")).toContainText("正在下载 1 个技能");
+  const install = page.getByRole("dialog", { name: "添加到项目", exact: true });
+  await expect(install).toBeVisible();
+  await expect(install.getByLabel("目标项目")).toHaveValue("project-second");
+  await expect(install.getByLabel("目标项目")).toBeDisabled();
+  expect(await invocations(page, "finish_import")).toHaveLength(1);
+  expect(await invocations(page, "apply_deployment")).toHaveLength(0);
+  await install.getByRole("button", { name: "预览变更" }).click();
+  expect(
+    (await invocations(page, "preview_deployment"))[0].args.projectId,
+  ).toBe("project-second");
+});
+
+test("项目内批量下载只有一项成功时保留列表与失败选择，不跳转安装", async ({
+  page,
+}) => {
+  await installBackendFixture(page, {
+    extraProject: true,
+    sourceCandidateCount: 2,
+    downloadFailures: { "skills/tauri-security": 1 },
+  });
+  await page.goto("/");
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: /^项目/ })
+    .click();
+  await page.getByRole("button", { name: /第二个项目 D:/ }).click();
+  await page.getByRole("button", { name: "添加技能", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "为 第二个项目 添加技能" });
+  await picker.getByRole("tab", { name: "从云端", exact: true }).click();
+  await picker.getByLabel("仓库地址").fill("https://github.com/example/skills");
+  await picker.getByRole("button", { name: "查找技能" }).click();
+  await picker.getByRole("button", { name: "全选", exact: true }).click();
+  await picker
+    .getByRole("button", { name: "下载所选（2）", exact: true })
+    .click();
+  await expect(picker.getByRole("status")).toContainText("已保存 1 / 2 个技能");
+  await expect(picker).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "添加到项目", exact: true }),
+  ).toHaveCount(0);
+  const rows = picker.locator(".candidate-row");
+  await expect(
+    rows.nth(0).getByRole("button", { name: "已下载", exact: true }),
+  ).toBeDisabled();
+  await expect(rows.nth(1)).toContainText("模拟下载失败，请重试");
+  await expect(
+    rows.nth(1).getByRole("button", { name: "取消选择", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    picker.getByRole("button", { name: "下载所选（1）", exact: true }),
+  ).toBeEnabled();
+  expect(await invocations(page, "get_revisions")).toHaveLength(0);
+  expect(await invocations(page, "preview_deployment")).toHaveLength(0);
+  expect(await invocations(page, "apply_deployment")).toHaveLength(0);
+  expect(
+    await page.evaluate(() => window.__ASKILLS_TEST__.committedSkillPaths),
+  ).toEqual(["skills/rust"]);
+});

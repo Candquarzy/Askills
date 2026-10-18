@@ -130,12 +130,37 @@ try {
       .locator(".candidate-row")
       .filter({ hasText: ".agents/skills/tauri-setup" });
     await expect(candidate).toBeVisible({ timeout: 150_000 });
-    await candidate.getByRole("button", { name: "下载并预览" }).click();
-    const dialog = page.getByRole("dialog", { name: "确认导入技能" });
-    await expect(dialog).toBeVisible({ timeout: 90_000 });
-    assert.equal((await invoke("get_snapshot")).skills.length, 0);
-    await dialog.getByRole("button", { name: "确认导入", exact: true }).click();
-    await expect(dialog).not.toBeVisible({ timeout: 30_000 });
+    if (process.argv.includes("--download")) {
+      await candidate
+        .getByRole("button", { name: "下载", exact: true })
+        .click();
+      await expect(page.getByRole("status")).toContainText("正在下载");
+      await expect(
+        page.getByRole("progressbar", { name: "操作进度" }),
+      ).toBeVisible();
+      await expect(
+        candidate.getByRole("button", { name: "已下载", exact: true }),
+      ).toBeVisible({ timeout: 90_000 });
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      report.checks.push(
+        "direct download saves to library without preview; fixed toast and progress are visible",
+      );
+    } else {
+      await candidate
+        .getByRole("button", { name: "预览", exact: true })
+        .click();
+      const dialog = page.getByRole("dialog", { name: "预览技能" });
+      await expect(dialog).toBeVisible({ timeout: 90_000 });
+      assert.equal((await invoke("get_snapshot")).skills.length, 0);
+      await dialog
+        .getByRole("button", { name: "下载到技能库", exact: true })
+        .click();
+      await expect(dialog).not.toBeVisible({ timeout: 30_000 });
+    }
+    await page
+      .getByRole("navigation")
+      .getByRole("button", { name: /^技能库/ })
+      .click();
     await page.getByRole("button", { name: /^tauri-setup Create/ }).click();
     await expect(
       page.getByRole("heading", { name: "Tauri setup", exact: true }),

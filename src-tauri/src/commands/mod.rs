@@ -131,6 +131,15 @@ pub struct Runtime {
     workspace: Mutex<Result<Workspace>>,
     busy: AtomicBool,
     cancel: AtomicBool,
+    download_progress: Mutex<Option<DownloadStatus>>,
+}
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadStatus {
+    request_id: String,
+    #[serde(flatten)]
+    progress: github::DownloadProgress,
+    stage: String,
 }
 impl Runtime {
     pub fn new(path: PathBuf) -> Arc<Self> {
@@ -138,6 +147,7 @@ impl Runtime {
             workspace: Mutex::new(Workspace::open(path)),
             busy: AtomicBool::new(false),
             cancel: AtomicBool::new(false),
+            download_progress: Mutex::new(None),
         })
     }
 }
@@ -448,17 +458,37 @@ pub async fn prepare_github(
     state: State<'_, Arc<Runtime>>,
     catalog_id: String,
     skill_path: String,
+    request_id: Option<String>,
 ) -> Result<PreparedImport> {
+    let runtime = state.inner().clone();
+    let request_id = request_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    if request_id.len() > 80 || request_id.is_empty() {
+        return Err(AppError::new("InvalidRequest", "下载任务编号无效"));
+    }
     work(state.inner().clone(), move |w, c| {
         let saved = w
             .catalogs
             .get(&catalog_id)
             .ok_or_else(|| AppError::new("CatalogExpired", "来源列表已过期，请重新查找"))?;
-        let download = if let Some(git) = &saved.git {
-            github::git::download(git, &skill_path, c)?
-        } else {
-            github::download(&saved.catalog, &skill_path, c)?
+        let progress = |value: github::DownloadProgress| {
+            if let Ok(mut current) = runtime.download_progress.lock() {
+                *current = Some(DownloadStatus {
+                    request_id: request_id.clone(),
+                    progress: value,
+                    stage: "download".into(),
+                });
+            }
         };
+        let download = if let Some(git) = &saved.git {
+            github::git::download_with_progress(git, &skill_path, c, &progress)?
+        } else {
+            github::download_with_progress(&saved.catalog, &skill_path, c, &progress)?
+        };
+        if let Ok(mut current) = runtime.download_progress.lock()
+            && let Some(status) = current.as_mut()
+        {
+            status.stage = "validate".into();
+        }
         w.prepare(
             download.skill_path,
             Some(download.source),
@@ -467,6 +497,20 @@ pub async fn prepare_github(
         )
     })
     .await
+}
+#[tauri::command]
+pub fn get_download_progress(
+    state: State<'_, Arc<Runtime>>,
+    request_id: String,
+) -> Option<DownloadStatus> {
+    // Read-only progress does not take the workspace mutex or enter the job queue.
+    state
+        .download_progress
+        .lock()
+        .ok()?
+        .as_ref()
+        .filter(|value| value.request_id == request_id)
+        .cloned()
 }
 #[tauri::command]
 pub async fn get_git_version(state: State<'_, Arc<Runtime>>) -> Result<String> {
