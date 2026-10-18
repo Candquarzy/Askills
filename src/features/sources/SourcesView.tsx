@@ -1,3 +1,4 @@
+import { useI18n } from "../../app/i18n";
 import { useContext, useEffect, useState } from "react";
 import {
   GitFork as Github,
@@ -16,7 +17,6 @@ import type {
   RunOperation,
   Skill,
 } from "../../lib/ipc/types";
-
 export function SourcesView({
   busy,
   run,
@@ -36,6 +36,7 @@ export function SourcesView({
   seed: Skill | null;
   embedded?: boolean;
 }) {
+  const { t, locale } = useI18n();
   const [repository, setRepository] = useState(seed?.source.url || "");
   const [reference, setReference] = useState(seed?.source.reference || "");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -45,7 +46,10 @@ export function SourcesView({
   const [results, setResults] = useState<
     Record<
       string,
-      { state: "downloading" | "done" | "error"; message?: string }
+      {
+        state: "downloading" | "done" | "error";
+        message?: string;
+      }
     >
   >({});
   const operation = useContext(OperationContext);
@@ -63,7 +67,9 @@ export function SourcesView({
   async function resolve() {
     setCatalog(null);
     const result = await run(
-      method === "git" ? "使用本机 Git 拉取固定版本" : "解析 GitHub 固定版本",
+      method === "git"
+        ? t("使用本机 Git 拉取固定版本")
+        : t("解析 GitHub 固定版本"),
       async () => {
         const history = await call<string[]>("remember_repository", {
           repository,
@@ -82,7 +88,7 @@ export function SourcesView({
   }
   async function preview(path: string) {
     if (!catalog) return;
-    const result = await run("正在获取技能预览", () =>
+    const result = await run(t("正在获取技能预览"), () =>
       prepareDownload(catalog.id, path, operation.reportProgress),
     );
     if (result) prepared(result);
@@ -90,7 +96,7 @@ export function SourcesView({
   async function download(paths: string[]) {
     if (!catalog || !paths.length) return;
     const outcome = await run(
-      `正在下载 ${paths.length} 个技能到技能库`,
+      t("正在下载 {count} 个技能到技能库", { count: paths.length }),
       async () => {
         const saved: Skill[] = [];
         let failures = 0;
@@ -108,7 +114,7 @@ export function SourcesView({
               operation.reportProgress,
             );
             if (operation.isCancellationRequested())
-              throw new Error("下载已取消");
+              throw new Error(t("下载已取消"));
             const skill = await call<Skill>("finish_import", {
               importId: pending.id,
             });
@@ -120,7 +126,7 @@ export function SourcesView({
             failures++;
             setResults((values) => ({
               ...values,
-              [path]: { state: "error", message: errorMessage(error) },
+              [path]: { state: "error", message: errorMessage(error, locale) },
             }));
             if (pending) {
               try {
@@ -145,7 +151,14 @@ export function SourcesView({
         outcome.saved,
         paths.length === 1 && outcome.failures === 0 && !outcome.cancelled,
       );
-    const summary = `${outcome.cancelled ? "下载已停止。" : "下载结束。"}已保存 ${outcome.saved.length} / ${paths.length} 个技能${outcome.failures ? `，${outcome.failures} 项未完成，可在列表重试` : ""}。`;
+    const summary = t("{status}已保存 {saved} / {total} 个技能{failures}。", {
+      status: outcome.cancelled ? t("下载已停止。") : t("下载结束。"),
+      saved: outcome.saved.length,
+      total: paths.length,
+      failures: outcome.failures
+        ? t("，{count} 项未完成，可在列表重试", { count: outcome.failures })
+        : "",
+    });
     if (!outcome.saved.length && outcome.failures && !outcome.cancelled)
       operation.fail(summary);
     else operation.notify(summary);
@@ -163,16 +176,19 @@ export function SourcesView({
         <header className="page-head">
           <div>
             <p className="eyebrow">DISCOVER & BRING HOME</p>
-            <h1>来源</h1>
-            <p className="subtitle">从 GitHub 获取技能，保存到自己的本地库。</p>
+            <h1>{t("来源")}</h1>
+            <p className="subtitle">
+              {t("从 GitHub 获取技能，保存到自己的本地库。")}
+            </p>
           </div>
           <span className="pill">
-            <Github size={15} /> GitHub 来源
+            <Github size={15} />
+            {t("GitHub 来源")}
           </span>
         </header>
       )}
       <section className="source-form">
-        <div className="source-methods" role="group" aria-label="获取方式">
+        <div className="source-methods" role="group" aria-label={t("获取方式")}>
           <button
             aria-pressed={method === "api"}
             className={method === "api" ? "primary" : ""}
@@ -193,43 +209,47 @@ export function SourcesView({
               setCatalog(null);
             }}
           >
-            本地 Git
+            {t("本地 Git")}
           </button>
         </div>
         {method === "git" ? (
           <div className="source-method-note">
             <p className="footnote">
-              使用已安装的
-              Git，沿用本机代理和凭据配置。在独立临时仓库拉取固定提交，不合并或改动你的项目；无需
-              GitHub API 配额。请填写 HTTPS 仓库地址，交互登录提示不会弹出。
+              {t(
+                "使用已安装的 Git，沿用本机代理和凭据配置。在独立临时仓库拉取固定提交，不合并或改动你的项目；无需 GitHub API 配额。请填写 HTTPS 仓库地址，交互登录提示不会弹出。",
+              )}
             </p>
             <button
               className="text-button"
               disabled={busy}
               onClick={() =>
-                void run("检查本机 Git", async () => {
+                void run(t("检查本机 Git"), async () => {
                   const value = await call<string>("get_git_version");
                   setGitVersion(value);
                 })
               }
             >
-              检查 Git 安装
+              {t("检查 Git 安装")}
             </button>
             {gitVersion && <span className="muted">{gitVersion}</span>}
           </div>
         ) : (
           <p className="footnote">
-            通过 GitHub API 获取公共仓库，不需要安装 Git。
+            {t("通过 GitHub API 获取公共仓库，不需要安装 Git。")}
           </p>
         )}
         <div className="source-title">
           <Github size={24} />
           <div>
             <h2>
-              {seed ? `检查 ${seed.name} 的来源版本` : "导入 GitHub 技能"}
+              {seed
+                ? t("检查 {skill} 的来源版本", {
+                    skill: seed.name,
+                  })
+                : t("导入 GitHub 技能")}
             </h2>
             <p className="muted">
-              输入仓库地址，选择版本，再预览需要导入的技能。
+              {t("输入仓库地址，选择版本，再预览需要导入的技能。")}
             </p>
           </div>
         </div>
@@ -240,7 +260,7 @@ export function SourcesView({
           }}
         >
           <label className="field">
-            仓库地址
+            {t("仓库地址")}
             <input
               required
               disabled={busy}
@@ -254,9 +274,9 @@ export function SourcesView({
           </label>
           {!!repositoryHistory.length && (
             <label className="field repository-history">
-              最近使用的仓库（最多 10 个）
+              {t("最近使用的仓库（最多 10 个）")}
               <select
-                aria-label="仓库历史记录"
+                aria-label={t("仓库历史记录")}
                 value=""
                 disabled={busy}
                 onChange={(event) => {
@@ -267,7 +287,7 @@ export function SourcesView({
                 }}
               >
                 <option value="" disabled>
-                  选择历史地址填入上方
+                  {t("选择历史地址填入上方")}
                 </option>
                 {repositoryHistory.map((address) => (
                   <option key={address} value={address}>
@@ -279,10 +299,10 @@ export function SourcesView({
           )}
           <div className="form-inline">
             <label className="field">
-              分支、标签或 commit（可选）
+              {t("分支、标签或 commit（可选）")}
               <input
                 disabled={busy}
-                placeholder="留空使用默认分支"
+                placeholder={t("留空使用默认分支")}
                 value={reference}
                 onChange={(e) => {
                   setReference(e.target.value);
@@ -295,18 +315,23 @@ export function SourcesView({
               disabled={busy || !repository.trim()}
               type="submit"
             >
-              <Search size={16} /> 查找技能
+              <Search size={16} />
+              {t("查找技能")}
             </button>
           </div>
         </form>
         <p className="footnote">
-          下载固定到完整 commit。不会执行仓库脚本，项目不会跟随来源自动升级。
+          {t(
+            "下载固定到完整 commit。不会执行仓库脚本，项目不会跟随来源自动升级。",
+          )}
         </p>
       </section>
       {catalog && (
         <section className="catalog">
           <div className="detail-heading">
-            <h2>找到 {catalog.candidates.length} 个技能</h2>
+            <h2>
+              {t("找到 {count} 个技能", { count: catalog.candidates.length })}
+            </h2>
             <span className="badge">{shortHash(catalog.commit)}</span>
           </div>
           <p className="path">
@@ -314,7 +339,7 @@ export function SourcesView({
           </p>
           {!!catalog.candidates.length && (
             <div className="source-selection-bar">
-              <span>已选择 {selected.length} 项</span>
+              <span>{t("已选择 {count} 项", { count: selected.length })}</span>
               <button
                 disabled={busy}
                 onClick={() =>
@@ -325,25 +350,27 @@ export function SourcesView({
                   )
                 }
               >
-                全选
+                {t("全选")}
               </button>
               <button
                 disabled={busy || !selected.length}
                 onClick={() => setSelected([])}
               >
-                清空选择
+                {t("清空选择")}
               </button>
               <button
                 className="primary"
                 disabled={busy || !selected.length}
                 onClick={() => void download(selected)}
               >
-                下载所选（{selected.length}）
+                {t("下载所选（")}
+                {selected.length}
+                {t("）")}
               </button>
             </div>
           )}
           {!catalog.candidates.length && (
-            <p className="subtle-empty">该版本没有找到 SKILL.md。</p>
+            <p className="subtle-empty">{t("该版本没有找到 SKILL.md。")}</p>
           )}
           {catalog.candidates.map((candidate) => (
             <div
@@ -352,7 +379,7 @@ export function SourcesView({
             >
               <div>
                 <strong>{candidate.name}</strong>
-                <p className="path">{candidate.path || "仓库根目录"}</p>
+                <p className="path">{candidate.path || t("仓库根目录")}</p>
                 {results[candidate.path]?.state === "error" && (
                   <p className="candidate-error">
                     {results[candidate.path].message}
@@ -366,17 +393,17 @@ export function SourcesView({
                 >
                   <ArrowDownToLine size={15} />{" "}
                   {results[candidate.path]?.state === "done"
-                    ? "已下载"
+                    ? t("已下载")
                     : results[candidate.path]?.state === "downloading"
-                      ? "下载中…"
-                      : "下载"}
+                      ? t("下载中…")
+                      : t("下载")}
                 </button>
                 <button
                   disabled={busy}
                   onClick={() => void preview(candidate.path)}
                 >
                   <Eye size={15} />
-                  预览
+                  {t("预览")}
                 </button>
                 <button
                   disabled={busy || results[candidate.path]?.state === "done"}
@@ -384,7 +411,9 @@ export function SourcesView({
                   onClick={() => toggle(candidate.path)}
                 >
                   <Check size={15} />
-                  {selected.includes(candidate.path) ? "取消选择" : "多选"}
+                  {selected.includes(candidate.path)
+                    ? t("取消选择")
+                    : t("多选")}
                 </button>
               </div>
             </div>
@@ -394,14 +423,16 @@ export function SourcesView({
       <div className="source-note">
         <ShieldCheck size={22} />
         <div>
-          <h3>保留来源，也保留选择权</h3>
+          <h3>{t("保留来源，也保留选择权")}</h3>
           <p>
-            下载会保存到技能库；预览仅临时读取内容，关闭后不会入库。记录来源、提交和许可证，项目安装与升级仍由你确认。
+            {t(
+              "下载会保存到技能库；预览仅临时读取内容，关闭后不会入库。记录来源、提交和许可证，项目安装与升级仍由你确认。",
+            )}
           </p>
         </div>
       </div>
       <section className="source-examples">
-        <h3>可以从这些社区仓库开始</h3>
+        <h3>{t("可以从这些社区仓库开始")}</h3>
         <div className="example-buttons">
           {["wshobson/agents", "fxckcode/tauri-skills"].map((repo) => (
             <button
@@ -418,7 +449,7 @@ export function SourcesView({
           ))}
         </div>
         <p className="footnote">
-          这些是本项目开发 skills 的来源，属于第三方社区内容。
+          {t("这些是本项目开发 skills 的来源，属于第三方社区内容。")}
         </p>
       </section>
     </>

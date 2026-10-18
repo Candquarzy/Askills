@@ -1,3 +1,4 @@
+import { useI18n } from "../../app/i18n";
 import { useState } from "react";
 import {
   ArrowDownToLine,
@@ -19,7 +20,6 @@ import type {
 import { Markdown } from "../../components/Markdown";
 import { EmptyState } from "../../components/EmptyState";
 import { Modal } from "../../components/Modal";
-
 export function LibraryView({
   skills,
   busy,
@@ -37,6 +37,7 @@ export function LibraryView({
   checkUpdate: (skill: Skill) => void;
   updated: (skill: Skill) => void;
 }) {
+  const { t, locale } = useI18n();
   const [query, setQuery] = useState("");
   const [doc, setDoc] = useState<SkillDocument | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -52,7 +53,7 @@ export function LibraryView({
       .includes(query.trim().toLocaleLowerCase()),
   );
   async function open(skill: Skill, revisionId = skill.latestRevisionId) {
-    const data = await run("读取技能与版本", async () => {
+    const data = await run(t("读取技能与版本"), async () => {
       const document = await call<SkillDocument>("get_document", {
         revisionId,
       });
@@ -72,14 +73,14 @@ export function LibraryView({
     const other = revisions.find((r) => r.id !== doc.revision.id);
     const beforeId = latest !== doc.revision.id ? doc.revision.id : other?.id;
     if (!beforeId || !latest) return;
-    const result = await run("比较版本内容", () =>
+    const result = await run(t("比较版本内容"), () =>
       call<RevisionDiff>("get_revision_diff", { beforeId, afterId: latest }),
     );
     if (result) setDiff(result);
   }
   async function saveName(displayName: string) {
     if (!currentSkill) return;
-    const result = await run("保存显示名称", () =>
+    const result = await run(t("保存显示名称"), () =>
       call<Skill>("set_skill_display_name", {
         skillId: currentSkill.id,
         displayName,
@@ -96,28 +97,34 @@ export function LibraryView({
         <div>
           <p className="eyebrow">YOUR SKILL LIBRARY</p>
           <h1>
-            技能库 <span className="count">{skills.length}</span>
+            {t("技能库")}
+            <span className="count">{skills.length}</span>
           </h1>
-          <p className="subtitle">集中保存，按项目使用。每个版本都可以追溯。</p>
+          <p className="subtitle">
+            {t("集中保存，按项目使用。每个版本都可以追溯。")}
+          </p>
         </div>
         <button className="primary" disabled={busy} onClick={importLocal}>
-          <FolderPlus size={17} /> 导入本地技能
+          <FolderPlus size={17} />
+          {t("导入本地技能")}
         </button>
       </header>
       <div className="search-row">
         <label className="search">
           <Search size={17} />
           <input
-            aria-label="搜索技能"
-            placeholder="搜索名称、描述或来源…"
+            aria-label={t("搜索技能")}
+            placeholder={t("搜索名称、描述或来源…")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
-        <span className="muted">{filtered.length} 个技能</span>
+        <span className="muted">
+          {t("{count} 个技能", { count: filtered.length })}
+        </span>
       </div>
       <div className={doc ? "library-layout with-detail" : "library-layout"}>
-        <section className="skill-list" aria-label="技能列表">
+        <section className="skill-list" aria-label={t("技能列表")}>
           {filtered.map((skill) => (
             <button
               key={skill.id}
@@ -140,10 +147,12 @@ export function LibraryView({
                 <span className="skill-description">{skill.description}</span>
                 <span className="skill-meta">
                   <span>
-                    {skill.source.kind === "github" ? "GitHub" : "本地导入"}
+                    {skill.source.kind === "github" ? "GitHub" : t("本地导入")}
                   </span>
-                  <span>{skill.license || "许可未声明"}</span>
-                  <span>{skill.revisionCount} 个版本</span>
+                  <span>{skill.license || t("许可未声明")}</span>
+                  <span>
+                    {t("{count} 个版本", { count: skill.revisionCount })}
+                  </span>
                 </span>
               </span>
             </button>
@@ -151,11 +160,13 @@ export function LibraryView({
           {!filtered.length && (
             <EmptyState
               icon={<BookOpen size={28} />}
-              title={query ? "没有匹配的技能" : "你的技能库，从一个文件夹开始"}
+              title={
+                query ? t("没有匹配的技能") : t("你的技能库，从一个文件夹开始")
+              }
             >
               {query
-                ? "试试其他名称或描述。"
-                : "选择包含 SKILL.md 的文件夹，或前往来源页从 GitHub 导入。"}
+                ? t("试试其他名称或描述。")
+                : t("选择包含 SKILL.md 的文件夹，或前往来源页从 GitHub 导入。")}
             </EmptyState>
           )}
         </section>
@@ -164,11 +175,14 @@ export function LibraryView({
             <div className="detail-heading">
               <h2>{currentSkill?.displayName || doc.skill.name}</h2>
               <button className="text-button" onClick={() => setDoc(null)}>
-                收起
+                {t("收起")}
               </button>
             </div>
             <div className="button-row">
-              <span className="path">原始名称：{doc.skill.name}</span>
+              <span className="path">
+                {t("原始名称：")}
+                {doc.skill.name}
+              </span>
               <button
                 className="text-button"
                 disabled={busy}
@@ -177,7 +191,8 @@ export function LibraryView({
                   setRenaming(true);
                 }}
               >
-                <Pencil size={14} /> 编辑显示名称
+                <Pencil size={14} />
+                {t("编辑显示名称")}
               </button>
             </div>
             <p className="muted">{doc.skill.description}</p>
@@ -187,16 +202,18 @@ export function LibraryView({
                 disabled={busy}
                 onClick={() => install(doc.revision)}
               >
-                <ArrowDownToLine size={15} /> 添加到项目
+                <ArrowDownToLine size={15} />
+                {t("添加到项目")}
               </button>
               {doc.skill.source.kind === "github" && (
                 <button disabled={busy} onClick={() => checkUpdate(doc.skill)}>
-                  <RefreshCw size={15} /> 检查更新
+                  <RefreshCw size={15} />
+                  {t("检查更新")}
                 </button>
               )}
             </div>
             <label className="field">
-              阅读版本
+              {t("阅读版本")}
               <select
                 disabled={busy}
                 value={doc.revision.id}
@@ -205,13 +222,17 @@ export function LibraryView({
                 {revisions.map((r) => (
                   <option key={r.id} value={r.id}>
                     {shortHash(r.source.commit || r.hash)} ·{" "}
-                    {new Date(Number(r.createdAt) * 1000).toLocaleDateString()}
+                    {new Date(Number(r.createdAt) * 1000).toLocaleDateString(
+                      locale,
+                    )}
                   </option>
                 ))}
               </select>
             </label>
             <div className="meta-line">
-              <span>{doc.revision.fileCount} 个文件</span>
+              <span>
+                {t("{count} 个文件", { count: doc.revision.fileCount })}
+              </span>
               <code>{shortHash(doc.revision.hash)}</code>
               {revisions.length > 1 && (
                 <button
@@ -219,7 +240,8 @@ export function LibraryView({
                   disabled={busy}
                   onClick={() => void compare()}
                 >
-                  <History size={14} /> 对比最新版本
+                  <History size={14} />
+                  {t("对比最新版本")}
                 </button>
               )}
             </div>
@@ -228,7 +250,7 @@ export function LibraryView({
             </p>
             {doc.warnings.map((w) => (
               <p className="notice" key={w}>
-                {w}
+                {t(w)}
               </p>
             ))}
             <div className="reader-tabs">
@@ -236,13 +258,13 @@ export function LibraryView({
                 className={!raw ? "active" : ""}
                 onClick={() => setRaw(false)}
               >
-                阅读
+                {t("阅读")}
               </button>
               <button
                 className={raw ? "active" : ""}
                 onClick={() => setRaw(true)}
               >
-                原始 Markdown
+                {t("原始 Markdown")}
               </button>
             </div>
             {raw ? (
@@ -255,7 +277,7 @@ export function LibraryView({
       </div>
       {renaming && (
         <Modal
-          title="编辑技能显示名称"
+          title={t("编辑技能显示名称")}
           busy={busy}
           close={() => setRenaming(false)}
         >
@@ -267,7 +289,7 @@ export function LibraryView({
           >
             <div className="modal-body">
               <label className="field">
-                显示名称
+                {t("显示名称")}
                 <input
                   autoFocus
                   maxLength={80}
@@ -278,8 +300,9 @@ export function LibraryView({
                 />
               </label>
               <p className="footnote">
-                仅改变 Askills 中的显示，原始名称、SKILL.md
-                和项目安装路径保持不变。留空可恢复原名。
+                {t(
+                  "仅改变 Askills 中的显示，原始名称、SKILL.md 和项目安装路径保持不变。留空可恢复原名。",
+                )}
               </p>
             </div>
             <footer className="modal-footer">
@@ -288,10 +311,10 @@ export function LibraryView({
                 disabled={busy}
                 onClick={() => void saveName("")}
               >
-                恢复原名
+                {t("恢复原名")}
               </button>
               <button className="primary" disabled={busy} type="submit">
-                保存名称
+                {t("保存名称")}
               </button>
             </footer>
           </form>
@@ -299,14 +322,14 @@ export function LibraryView({
       )}
       {diff && (
         <Modal
-          title="版本差异 · 较早版本 → 最新版本"
+          title={t("版本差异 · 较早版本 → 最新版本")}
           wide
           close={() => setDiff(null)}
         >
           <div className="diff-summary">
-            <span>新增 {diff.added.length}</span>
-            <span>删除 {diff.removed.length}</span>
-            <span>修改 {diff.changed.length}</span>
+            <span>{t("新增 {count}", { count: diff.added.length })}</span>
+            <span>{t("删除 {count}", { count: diff.removed.length })}</span>
+            <span>{t("修改 {count}", { count: diff.changed.length })}</span>
           </div>
           <div className="file-diff">
             {diff.added.map((p) => (
@@ -321,11 +344,11 @@ export function LibraryView({
           </div>
           <div className="diff-columns">
             <section>
-              <h3>原版本 SKILL.md</h3>
+              <h3>{t("原版本 SKILL.md")}</h3>
               <pre>{diff.before}</pre>
             </section>
             <section>
-              <h3>新版本 SKILL.md</h3>
+              <h3>{t("新版本 SKILL.md")}</h3>
               <pre>{diff.after}</pre>
             </section>
           </div>

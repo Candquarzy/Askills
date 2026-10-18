@@ -15,8 +15,10 @@ use std::sync::atomic::AtomicBool;
 use uuid::Uuid;
 
 mod appearance;
+mod locale;
 mod repository_history;
 pub use appearance::{Appearance, ThemeMode};
+pub use locale::Locale;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

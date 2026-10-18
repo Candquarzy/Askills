@@ -81,6 +81,7 @@ export type Snapshot = {
   recovery: string[];
   repositoryHistory: string[];
   appearance: Appearance;
+  locale: Locale;
 };
 export type ImportPreview = {
   name: string;
@@ -122,3 +123,4 @@ export type RunOperation = <T>(
   label: string,
   work: () => Promise<T>,
 ) => Promise<T | undefined>;
+export type Locale = "zh-CN" | "en";

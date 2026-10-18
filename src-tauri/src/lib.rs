@@ -30,7 +30,7 @@ pub fn run() {
         .setup(|app| {
             let data = commands::data_directory(app.handle())?;
             let runtime = commands::Runtime::new(data);
-            runtime.apply_initial_theme(app.handle());
+            runtime.apply_initial_preferences(app.handle());
             app.manage(runtime);
             // Always start at the configured logical size. Apply this before
             // showing the window so an old maximized/restore rectangle cannot
@@ -54,6 +54,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             commands::get_snapshot,
+            commands::set_locale,
             commands::set_appearance,
             commands::remember_repository,
             commands::set_skill_display_name,

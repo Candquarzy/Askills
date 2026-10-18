@@ -2,6 +2,7 @@
 identifier = "workspace-access"
 description = "Manage skills through backend-validated selections, IDs and plans from the local main window."
 commands.allow = [
+  "set_locale",
   "set_appearance",
   "remember_repository",
   "get_download_progress",

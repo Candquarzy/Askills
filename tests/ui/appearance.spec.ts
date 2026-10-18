@@ -149,6 +149,9 @@ test("深色来源与弹窗使用统一主题，小窗口设置不会横向溢�
   await dialog.getByRole("button", { name: "关闭对话框" }).click();
   await page.setViewportSize({ width: 640, height: 720 });
   await settings(page);
+  await page
+    .getByRole("button", { name: "应用自定义颜色" })
+    .scrollIntoViewIfNeeded();
   await expect(
     page.getByRole("button", { name: "应用自定义颜色" }),
   ).toBeInViewport();

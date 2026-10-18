@@ -4,7 +4,7 @@ use crate::domain::{
 };
 use crate::services::{deployments, library, projects};
 use crate::sources::github;
-use crate::storage::{Appearance, Store, ThemeMode};
+use crate::storage::{Appearance, Locale, Store, ThemeMode};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -142,13 +142,16 @@ pub struct DownloadStatus {
     stage: String,
 }
 impl Runtime {
-    pub fn apply_initial_theme(&self, app: &AppHandle) {
+    pub fn apply_initial_preferences(&self, app: &AppHandle) {
         if let Ok(locked) = self.workspace.lock()
             && let Ok(workspace) = locked.as_ref()
             && let Ok(appearance) = workspace.store.appearance()
             && let Some(window) = app.get_webview_window("main")
         {
             let _ = window.set_theme(native_theme(appearance.mode));
+            if let Ok(locale) = workspace.store.locale() {
+                let _ = window.set_title(locale.window_title());
+            }
         }
     }
     pub fn new(path: PathBuf) -> Arc<Self> {
@@ -208,6 +211,7 @@ pub struct Snapshot {
     recovery: Vec<String>,
     repository_history: Vec<String>,
     appearance: Appearance,
+    locale: Locale,
 }
 #[derive(Serialize)]
 pub struct DirectorySelection {
@@ -256,7 +260,23 @@ pub async fn get_snapshot(state: State<'_, Arc<Runtime>>) -> Result<Snapshot> {
             recovery: w.recovery.clone(),
             repository_history: w.store.repository_history()?,
             appearance: w.store.appearance()?,
+            locale: w.store.locale()?,
         })
+    })
+    .await
+}
+#[tauri::command]
+pub async fn set_locale(
+    app: AppHandle,
+    state: State<'_, Arc<Runtime>>,
+    locale: Locale,
+) -> Result<Locale> {
+    work(state.inner().clone(), move |w, _| {
+        let saved = w.store.set_locale(locale)?;
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.set_title(saved.window_title());
+        }
+        Ok(saved)
     })
     .await
 }
@@ -293,14 +313,22 @@ pub async fn pick_directory(
     state: State<'_, Arc<Runtime>>,
     purpose: String,
 ) -> Result<Option<DirectorySelection>> {
-    let title = match purpose.as_str() {
-        "import" => "选择包含 SKILL.md 的技能文件夹",
-        "project" => "选择项目文件夹",
-        "discover" => "选择项目扫描根目录",
-        "library" => "选择空的技能库目录",
+    let titles = match purpose.as_str() {
+        "import" => (
+            "选择包含 SKILL.md 的技能文件夹",
+            "Choose a skill folder containing SKILL.md",
+        ),
+        "project" => ("选择项目文件夹", "Choose a project folder"),
+        "discover" => ("选择项目扫描根目录", "Choose a folder to scan for projects"),
+        "library" => ("选择空的技能库目录", "Choose an empty library folder"),
         _ => return Err(AppError::new("InvalidSelection", "不支持的目录用途")),
     };
     work(state.inner().clone(), move |w, _| {
+        let title = if w.store.locale()? == Locale::English {
+            titles.1
+        } else {
+            titles.0
+        };
         let Some(selected) = app.dialog().file().set_title(title).blocking_pick_folder() else {
             return Ok(None);
         };

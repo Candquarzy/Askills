@@ -9,6 +9,7 @@ import type {
   SkillDocument,
   Snapshot,
   Appearance,
+  Locale,
 } from "../../src/lib/ipc/types";
 
 type Invocation = { command: string; args: Record<string, unknown> };
@@ -26,6 +27,8 @@ type FixtureOptions = {
   resolveFailure?: boolean;
   appearance?: Appearance;
   appearanceSaveFailure?: boolean;
+  locale?: Locale;
+  localeSaveFailure?: boolean;
 };
 
 declare global {
@@ -109,6 +112,11 @@ export async function installBackendFixture(
       ) ||
         options.appearance || { mode: "system", accentColor: "#005fb8" };
       let failedAppearance = false;
+      let locale: Locale =
+        (localStorage.getItem("askills-test-locale") as Locale) ||
+        options.locale ||
+        "zh-CN";
+      let failedLocale = false;
       let repositoryHistory: string[] =
         JSON.parse(
           localStorage.getItem("askills-test-repository-history") || "null",
@@ -258,8 +266,20 @@ export async function installBackendFixture(
                   recovery: [],
                   repositoryHistory,
                   appearance,
+                  locale,
                 };
                 return structuredClone(snapshot);
+              }
+              case "set_locale": {
+                if (options.localeSaveFailure && !failedLocale) {
+                  failedLocale = true;
+                  throw error("WriteFailed", "模拟设置保存失败");
+                }
+                if (args.locale !== "en" && args.locale !== "zh-CN")
+                  throw error("InvalidLocale", "界面语言无效");
+                locale = args.locale;
+                localStorage.setItem("askills-test-locale", locale);
+                return locale;
               }
               case "set_appearance": {
                 if (options.appearanceSaveFailure && !failedAppearance) {

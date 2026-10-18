@@ -103,6 +103,7 @@ async function expectStartupSize() {
 async function nativeWindowAction(action) {
   // Only manipulate this test's child window, never other Askills processes.
   const actions = {
+    title: "$nativeProcess.MainWindowTitle",
     resize:
       "[AskillsWindowSmoke]::SetWindowPos($handle,[IntPtr]::Zero,0,0,900,600,6) | Out-Null",
     maximize: "[AskillsWindowSmoke]::ShowWindowAsync($handle,3) | Out-Null",
@@ -111,13 +112,14 @@ async function nativeWindowAction(action) {
   };
   assert(Object.hasOwn(actions, action));
   assert(Number.isSafeInteger(child.pid));
-  await promisify(execFile)(
+  const { stdout } = await promisify(execFile)(
     "powershell.exe",
     [
       "-NoProfile",
       "-NonInteractive",
       "-Command",
       `
+    [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
     Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -127,13 +129,15 @@ public static class AskillsWindowSmoke {
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
 }
 '@
-    $handle = (Get-Process -Id ${child.pid} -ErrorAction Stop).MainWindowHandle
+    $nativeProcess = Get-Process -Id ${child.pid} -ErrorAction Stop
+    $handle = $nativeProcess.MainWindowHandle
     if ($handle -eq [IntPtr]::Zero) { throw 'Test window handle missing' }
     ${actions[action]}
   `,
     ],
     { windowsHide: true, timeout: 15000 },
   );
+  return stdout.trim();
 }
 try {
   await connectWindow();
@@ -248,6 +252,33 @@ try {
   await expect(page.getByLabel("自定义颜色", { exact: true })).toHaveValue(
     "#005fb8",
   );
+  await page.getByLabel("界面语言", { exact: true }).selectOption("en");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  assert.equal((await invoke("get_snapshot")).locale, "en");
+  assert.equal(await nativeWindowAction("title"), "Askills · Skill Manager");
+  await page.reload();
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "Settings", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Interface language", { exact: true }),
+  ).toHaveValue("en");
+  await page.screenshot({
+    path: path.join(output, "settings-english.png"),
+    fullPage: true,
+  });
+  await page
+    .getByLabel("Interface language", { exact: true })
+    .selectOption("zh-CN");
+  await expect(
+    page.getByRole("heading", { name: "设置", exact: true }),
+  ).toBeVisible();
+  report.checks.push(
+    "English interface saved through native SQLite/IPC, restored after reload, native window title updated, switching back to Chinese works",
+  );
   if (process.argv.includes("--github") || useGit) {
     console.log(
       "Testing public GitHub preview and import through the native UI…",
@@ -360,6 +391,14 @@ try {
     path: path.join(output, "window.png"),
     fullPage: true,
   });
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "设置", exact: true })
+    .click();
+  await page.getByLabel("界面语言", { exact: true }).selectOption("en");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
   for (const action of ["resize", "maximize"]) {
     await nativeWindowAction(action);
     await expect
@@ -377,9 +416,17 @@ try {
     child = launch();
     await connectWindow();
     await expectStartupSize();
+    await expect(
+      page.getByRole("button", { name: "Import local skill", exact: true }),
+    ).toBeEnabled();
+    assert.equal((await invoke("get_snapshot")).locale, "en");
+    assert.equal(await nativeWindowAction("title"), "Askills · Skill Manager");
   }
   report.checks.push(
     "startup size is always 1080×720 logical pixels after closing a resized or maximized native window",
+  );
+  report.checks.push(
+    "English language and native title persist across full process restarts",
   );
   console.log(JSON.stringify(report));
 } catch (error) {

@@ -1,21 +1,19 @@
+import { useI18n } from "../app/i18n";
 import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { OperationContext } from "../app/OperationContext";
 import "./operation-toast.css";
-
 const stageLabels: Record<string, string> = {
   download: "下载文件",
   validate: "校验文件",
   verify: "校验文件",
   save: "保存技能",
 };
-
 // A native modal makes the rest of the document inert. Mount inside the most
 // recently opened dialog so the toast remains visible and its controls usable.
 function useToastHost() {
   const [host, setHost] = useState<HTMLElement>(() => document.body);
-
   useEffect(() => {
     const openingOrder = new Map<HTMLDialogElement, number>();
     let sequence = 0;
@@ -59,17 +57,15 @@ function useToastHost() {
     updateHost();
     return () => observer.disconnect();
   }, []);
-
   return host;
 }
-
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${Math.max(0, bytes)} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
 export function OperationToast() {
+  const { t } = useI18n();
   const { error, busy, notice, cancel, dismissError, dismissNotice, progress } =
     useContext(OperationContext);
   const host = useToastHost();
@@ -82,9 +78,7 @@ export function OperationToast() {
     const timeout = window.setTimeout(() => dismissNoticeRef.current(), 6000);
     return () => window.clearTimeout(timeout);
   }, [notice, error, busy]);
-
   if (!error && !busy && !notice) return null;
-
   const state = error ? "error" : busy ? "busy" : "success";
   const hasTotal =
     progress !== null &&
@@ -100,9 +94,10 @@ export function OperationToast() {
     ? Math.floor((completedFiles / progress.totalFiles) * 100)
     : undefined;
   const stageLabel =
-    (progress?.stage && stageLabels[progress.stage]) ||
-    (hasTotal ? "下载文件" : "正在处理…");
-
+    (progress?.stage &&
+      stageLabels[progress.stage] &&
+      t(stageLabels[progress.stage])) ||
+    (hasTotal ? t("下载文件") : t("正在处理…"));
   return createPortal(
     <div className="operation-toast-region">
       <div
@@ -124,12 +119,14 @@ export function OperationToast() {
           </span>
           {state === "busy" ? (
             <button className="text-button" onClick={cancel}>
-              取消操作
+              {t("取消操作")}
             </button>
           ) : (
             <button
               className="icon-button"
-              aria-label={state === "error" ? "关闭错误提示" : "关闭成功提示"}
+              aria-label={
+                state === "error" ? t("关闭错误提示") : t("关闭成功提示")
+              }
               onClick={state === "error" ? dismissError : dismissNotice}
             >
               <X size={17} aria-hidden="true" />
@@ -138,13 +135,16 @@ export function OperationToast() {
         </div>
         {state === "busy" && (
           <div className="operation-toast-progress">
-            <progress aria-label="操作进度" max={100} value={percentage} />
+            <progress aria-label={t("操作进度")} max={100} value={percentage} />
             <div className="operation-toast-progress-detail">
               <span>{stageLabel}</span>
               {hasTotal && (
                 <span>
-                  {completedFiles} / {progress.totalFiles} 个文件 · {percentage}
-                  %
+                  {t("{done} / {total} 个文件 · {percentage}%", {
+                    done: completedFiles,
+                    total: progress.totalFiles,
+                    percentage: percentage!,
+                  })}
                 </span>
               )}
             </div>

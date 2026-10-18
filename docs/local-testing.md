@@ -95,6 +95,8 @@ Git 模式使用本机代理/凭据和独立临时仓库，不在项目中执行
 
 ## 7. 自动化检查
 
+语言可在“设置 → 语言与阅读”切换 English，检查导航、设置、库/项目/来源、预览弹窗和下载进度已变为英文；技能正文和自定义名称不变。完全退出再启动，英文选择与主题均应保留，窗口恢复 1080×720；再从 Settings → Language and reading 切回简体中文。语言切换无需联网。
+
 个性化外观可在“设置”中验证：切换预设色、用色盘或输入 `#ffcc00` 应用自定义颜色，再切换浅色/深色/跟随系统。按钮、导航选中、弹窗与进度应统一变化，亮色按钮文字仍清晰。退出应用再启动，设置应保留；“恢复默认”回到系统模式与默认蓝。输入非法颜色时不能提交。检查“MiSans 字体许可”可展开阅读，离线时中文、代码和路径仍使用内置字体。
 
 仓库历史可这样验证：在来源页查找一个仓库，看到“最近使用的仓库”下拉框；退出并重新打开应用后仍可选择。选择历史项应填入地址、清空旧分支，不自动查找。依次查找超过 10 个不同仓库，只保留最近 10 个；再次使用已有地址会前移而不重复。网络失败保留合法地址，非法/含凭据地址不保存。项目内“从云端”能选择同一份历史。
@@ -105,6 +107,7 @@ Git 模式使用本机代理/凭据和独立临时仓库，不在项目中执行
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib storage::tests
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib storage::repository_history
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib storage::appearance
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib storage::locale
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::library
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::projects
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::deployments
@@ -140,6 +143,8 @@ pnpm test:native --git --download
 原生测试启动 `src-tauri/target/debug/askills.exe`，使用独立临时数据目录和 WebView2 缓存，通过仅本机的调试端口操作真实 IPC。结束后关闭测试进程并清理它创建的临时目录，证据保存在 `test-results/native/`。`--github` 通过 API、`--git` 通过本机 Git 在原生 UI 中执行本仓库公共技能的查询、下载、确认导入与阅读，随后保存别名并重新加载页面检查持久化；不修改真实用户技能库。临时数据目录覆盖只在调试构建启用。
 
 默认原生冒烟还验证 MiSans 从应用本地资源加载，以及深色/自定义主题色经真实 SQLite 保存、页面重载后恢复；不访问用户实际设置。主题截图保存在 `appearance-dark.png`。
+
+原生冒烟也验证中英文切换、页面重载与进程重启保留语言、原生标题更新，以及调整大小/最大化后正常关闭重启仍为默认尺寸。英文截图为 `settings-english.png`。测试只调整、关闭其自身创建的隔离窗口。
 
 默认 exe 正在运行时会被 Windows 占用。关闭自己的应用再构建，或者用独立名称验证：
 
