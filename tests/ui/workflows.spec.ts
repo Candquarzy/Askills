@@ -11,7 +11,7 @@ test("技能搜索与 Markdown 阅读保留内容但不加载外部资源或执�
       externalRequests.push(request.url());
   });
   await page.goto("/");
-  const search = page.getByRole("textbox", { name: "搜索技能" });
+  const search = page.getByRole("textbox", { name: "搜索 skills" });
   await search.fill("异步");
   await expect(
     page.getByRole("button", { name: /rust-async-patterns 掌握/ }),
@@ -41,15 +41,15 @@ test("技能搜索与 Markdown 阅读保留内容但不加载外部资源或执�
 test("导入必须确认；关闭预览释放暂存且不会写入技能库", async ({ page }) => {
   await installBackendFixture(page, { emptyLibrary: true });
   await page.goto("/");
-  await page.getByRole("button", { name: "导入本地技能" }).click();
-  const dialog = page.getByRole("dialog", { name: "确认导入技能" });
+  await page.getByRole("button", { name: "导入本地 skill" }).click();
+  const dialog = page.getByRole("dialog", { name: "确认导入 skill" });
   await expect(dialog).toBeVisible();
   expect(await invocations(page, "finish_import")).toHaveLength(0);
   await dialog.getByRole("button", { name: "关闭对话框" }).click();
   await expect(dialog).not.toBeVisible();
   expect(await invocations(page, "discard_import")).toHaveLength(1);
   expect(await invocations(page, "finish_import")).toHaveLength(0);
-  await page.getByRole("button", { name: "导入本地技能" }).click();
+  await page.getByRole("button", { name: "导入本地 skill" }).click();
   await dialog.getByRole("button", { name: "确认导入", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(
@@ -61,8 +61,8 @@ test("导入必须确认；关闭预览释放暂存且不会写入技能库", as
 test("导入失败留在弹窗中显示错误，可使用同一预览重试", async ({ page }) => {
   await installBackendFixture(page, { importFailures: 1 });
   await page.goto("/");
-  await page.getByRole("button", { name: "导入本地技能" }).click();
-  const dialog = page.getByRole("dialog", { name: "确认导入技能" });
+  await page.getByRole("button", { name: "导入本地 skill" }).click();
+  const dialog = page.getByRole("dialog", { name: "确认导入 skill" });
   await dialog.getByRole("button", { name: "确认导入", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("模拟写入失败，请重试");
   await expect(dialog).toBeVisible();
@@ -88,7 +88,7 @@ test("部署计划有冲突时禁止确认应用，不发送写入命令", async
     .getByRole("dialog", { name: "添加到项目" })
     .getByRole("button", { name: "预览变更" })
     .click();
-  const plan = page.getByRole("dialog", { name: "确认启用项目技能" });
+  const plan = page.getByRole("dialog", { name: "确认启用项目 skill" });
   await expect(
     plan.getByText("目标已有非 Askills 管理的目录，不能覆盖。", {
       exact: true,
@@ -136,9 +136,9 @@ test("新版本导入后清除旧详情，重新阅读可选最新版本", async
   await page.goto("/");
   await page.getByRole("button", { name: /rust-async-patterns 掌握/ }).click();
   await expect(page.getByLabel("阅读版本")).toHaveValue("revision-rust-1");
-  await page.getByRole("button", { name: "导入本地技能" }).click();
+  await page.getByRole("button", { name: "导入本地 skill" }).click();
   await page
-    .getByRole("dialog", { name: "确认导入技能" })
+    .getByRole("dialog", { name: "确认导入 skill" })
     .getByRole("button", { name: "确认导入", exact: true })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
@@ -159,9 +159,9 @@ test("GitHub 分支单独传递，预览固定候选时不写入技能库", asyn
   await page
     .getByLabel("分支、标签或 commit（可选）")
     .fill("feature/rust-patterns");
-  await page.getByRole("button", { name: "查找技能" }).click();
+  await page.getByRole("button", { name: "查找 skills" }).click();
   await page.getByRole("button", { name: "预览", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "预览技能" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "预览 skill" })).toBeVisible();
   expect((await invocations(page, "resolve_github"))[0].args).toEqual({
     repository: "https://github.com/example/skills",
     reference: "feature/rust-patterns",

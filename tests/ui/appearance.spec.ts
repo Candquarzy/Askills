@@ -128,7 +128,7 @@ test("深色来源与弹窗使用统一主题，小窗口设置不会横向溢�
     .getByRole("button", { name: "来源", exact: true })
     .click();
   await page.getByLabel("仓库地址").fill("owner/repo");
-  await page.getByRole("button", { name: "查找技能" }).click();
+  await page.getByRole("button", { name: "查找 skills" }).click();
   await expect(page.locator(".candidate-row")).toHaveCount(1);
   expect(
     await page
@@ -136,7 +136,7 @@ test("深色来源与弹窗使用统一主题，小窗口设置不会横向溢�
       .evaluate((element) => getComputedStyle(element).backgroundColor),
   ).toBe("rgb(44, 44, 44)");
   await page.getByRole("button", { name: "预览", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "预览技能", exact: true });
+  const dialog = page.getByRole("dialog", { name: "预览 skill", exact: true });
   await expect(dialog).toBeVisible();
   expect(
     await dialog.evaluate(

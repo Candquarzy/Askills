@@ -15,7 +15,7 @@ pub enum Locale {
 impl Locale {
     pub fn window_title(self) -> &'static str {
         match self {
-            Self::Chinese => "Askills · 技能管理",
+            Self::Chinese => "Askills · skills 管理",
             Self::English => "Askills · Skill Manager",
         }
     }

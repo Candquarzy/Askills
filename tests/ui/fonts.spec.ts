@@ -12,7 +12,7 @@ test("内置MiSans实际渲染中文，表单、路径和代码字体统一，�
   });
   await page.goto("/");
   await page.evaluate(() =>
-    document.fonts.load('400 14px "MiSans"', "技能库 ABC 012"),
+    document.fonts.load('400 14px "MiSans"', "skills 库 ABC 012"),
   );
   const loaded = await page.evaluate(() =>
     Array.from(document.fonts).some(

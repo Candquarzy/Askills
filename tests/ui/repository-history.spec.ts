@@ -9,7 +9,7 @@ async function openSources(page: Page) {
 }
 async function find(page: Page, address: string) {
   await page.getByLabel("仓库地址").fill(address);
-  await page.getByRole("button", { name: "查找技能" }).click();
+  await page.getByRole("button", { name: "查找 skills" }).click();
   await expect(page.locator(".candidate-row")).toHaveCount(1);
 }
 async function addresses(page: Page) {
@@ -64,7 +64,7 @@ test("只保存最近10个仓库，重复地址前移，选择历史不自动查
   await expect(page.locator(".candidate-row")).toHaveCount(0);
   expect(await invocations(page, "resolve_github")).toHaveLength(before);
   await page.getByRole("button", { name: "本地 Git", exact: true }).click();
-  await page.getByRole("button", { name: "查找技能" }).click();
+  await page.getByRole("button", { name: "查找 skills" }).click();
   await expect(page.locator(".candidate-row")).toHaveCount(1);
   expect(await invocations(page, "resolve_git")).toHaveLength(1);
   const history = await addresses(page);
@@ -122,14 +122,14 @@ test("网络失败仍保留合法输入，非法或含凭据地址不记录", as
   await page.goto("/");
   await openSources(page);
   await page.getByLabel("仓库地址").fill("owner/unreachable");
-  await page.getByRole("button", { name: "查找技能" }).click();
+  await page.getByRole("button", { name: "查找 skills" }).click();
   await expect(page.getByRole("alert")).toContainText("模拟来源网络不可用");
   const history = await addresses(page);
   expect(history).toEqual(["https://github.com/owner/unreachable"]);
   await page
     .getByLabel("仓库地址")
     .fill("https://user:secret@github.com/owner/repo");
-  await page.getByRole("button", { name: "查找技能" }).click();
+  await page.getByRole("button", { name: "查找 skills" }).click();
   await expect(page.getByRole("alert")).toContainText("有效的 GitHub 仓库地址");
   expect(await addresses(page)).toEqual(history);
   expect(await invocations(page, "resolve_github")).toHaveLength(1);
@@ -145,8 +145,10 @@ test("项目内云端添加与来源页共用历史记录", async ({ page }) => 
     .getByRole("button", { name: /^项目/ })
     .click();
   await page.getByRole("button", { name: /Askills 示例 D:/ }).click();
-  await page.getByRole("button", { name: "添加技能", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "为 Askills 示例 添加技能" });
+  await page.getByRole("button", { name: "添加 skills", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "为 Askills 示例 添加 skills",
+  });
   await dialog.getByRole("tab", { name: "从云端", exact: true }).click();
   await dialog
     .getByRole("region", { name: "历史记录（最近10条）" })

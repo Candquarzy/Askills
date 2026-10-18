@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import english from "../../src/app/i18n/en.json" with { type: "json" };
+import chinese from "../../src/app/i18n/zh-CN.json" with { type: "json" };
 import { translate } from "../../src/app/i18n/messages";
 import { installBackendFixture, invocations } from "./fixtures";
 
@@ -20,6 +21,8 @@ test("中英文切换即时生效且重载保留，不覆盖主题与仓库历�
     repositoryHistory: ["https://github.com/example/skills"],
   });
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: /^skills 库/ })).toBeVisible();
+  await expect(page).toHaveTitle("Askills · skills 管理");
   await navigate(page, "设置");
   await page.getByLabel("外观模式", { exact: true }).selectOption("dark");
   await page.getByRole("button", { name: "鸢尾紫", exact: true }).click();
@@ -214,7 +217,22 @@ test("英文翻译目录完整，插值不会翻译或再次展开用户内容",
     [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
   for (const [source, translated] of Object.entries(catalog))
     expect(placeholders(translated), source).toEqual(placeholders(source));
+  for (const source of Object.keys(catalog)) {
+    const translated = translate(source, "zh-CN");
+    expect(translated, source).not.toContain("技能");
+    expect(placeholders(translated), source).toEqual(placeholders(source));
+  }
+  for (const source of Object.keys(chinese))
+    expect(catalog[source], source).toBeTruthy();
+  expect(translate("技能库", "zh-CN")).toBe("skills 库");
+  expect(
+    translate("为 {project} 添加技能", "zh-CN", {
+      project: "我的技能项目 {project}",
+    }),
+  ).toBe("为 我的技能项目 {project} 添加 skills");
+  expect(translate("未知内容：我的技能", "zh-CN")).toBe("未知内容：我的技能");
   expect(translate("toString", "en")).toBe("toString");
+  expect(translate("toString", "zh-CN")).toBe("toString");
   expect(
     translate("为 {project} 添加技能", "en", { project: "我的项目 {project}" }),
   ).toBe("Add skills to 我的项目 {project}");

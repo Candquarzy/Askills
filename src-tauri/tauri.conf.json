@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Askills · 技能管理",
+        "title": "Askills · skills 管理",
         "center": true,
         "visible": false,
         "maximized": false,

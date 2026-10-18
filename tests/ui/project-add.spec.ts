@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { installBackendFixture, invocations } from "./fixtures";
 
 for (const [source, git] of [
-  ["从技能库", false],
+  ["从 skills 库", false],
   ["从本地", false],
   ["从云端", false],
   ["从云端", true],
@@ -17,15 +17,19 @@ for (const [source, git] of [
       .getByRole("button", { name: /^项目/ })
       .click();
     await page.getByRole("button", { name: /第二个项目 D:/ }).click();
-    await page.getByRole("button", { name: "添加技能", exact: true }).click();
-    const picker = page.getByRole("dialog", { name: "为 第二个项目 添加技能" });
+    await page
+      .getByRole("button", { name: "添加 skills", exact: true })
+      .click();
+    const picker = page.getByRole("dialog", {
+      name: "为 第二个项目 添加 skills",
+    });
     await picker.getByRole("tab", { name: source, exact: true }).click();
-    if (source === "从技能库") {
+    if (source === "从 skills 库") {
       await picker.getByRole("button", { name: /rust-async-patterns/ }).click();
       await picker.getByRole("button", { name: "下一步" }).click();
     } else {
       if (source === "从本地")
-        await picker.getByRole("button", { name: "选择本地技能" }).click();
+        await picker.getByRole("button", { name: "选择本地 skill" }).click();
       else {
         if (git)
           await picker
@@ -34,7 +38,7 @@ for (const [source, git] of [
         await picker
           .getByLabel("仓库地址")
           .fill("https://github.com/example/skills");
-        await picker.getByRole("button", { name: "查找技能" }).click();
+        await picker.getByRole("button", { name: "查找 skills" }).click();
         await picker.getByRole("button", { name: "预览", exact: true }).click();
       }
       expect(await invocations(page, "apply_deployment")).toHaveLength(0);
@@ -71,13 +75,15 @@ test("项目云端直接下载单个技能后进入当前项目安装预览", as
     .getByRole("button", { name: /^项目/ })
     .click();
   await page.getByRole("button", { name: /第二个项目 D:/ }).click();
-  await page.getByRole("button", { name: "添加技能", exact: true }).click();
-  const picker = page.getByRole("dialog", { name: "为 第二个项目 添加技能" });
+  await page.getByRole("button", { name: "添加 skills", exact: true }).click();
+  const picker = page.getByRole("dialog", {
+    name: "为 第二个项目 添加 skills",
+  });
   await picker.getByRole("tab", { name: "从云端", exact: true }).click();
   await picker.getByLabel("仓库地址").fill("https://github.com/example/skills");
-  await picker.getByRole("button", { name: "查找技能" }).click();
+  await picker.getByRole("button", { name: "查找 skills" }).click();
   await picker.getByRole("button", { name: "下载", exact: true }).click();
-  await expect(picker.getByRole("status")).toContainText("正在下载 1 个技能");
+  await expect(picker.getByRole("status")).toContainText("正在下载 1 个 skill");
   const install = page.getByRole("dialog", { name: "添加到项目", exact: true });
   await expect(install).toBeVisible();
   await expect(install.getByLabel("目标项目")).toHaveValue("project-second");
@@ -104,16 +110,20 @@ test("项目内批量下载只有一项成功时保留列表与失败选择，�
     .getByRole("button", { name: /^项目/ })
     .click();
   await page.getByRole("button", { name: /第二个项目 D:/ }).click();
-  await page.getByRole("button", { name: "添加技能", exact: true }).click();
-  const picker = page.getByRole("dialog", { name: "为 第二个项目 添加技能" });
+  await page.getByRole("button", { name: "添加 skills", exact: true }).click();
+  const picker = page.getByRole("dialog", {
+    name: "为 第二个项目 添加 skills",
+  });
   await picker.getByRole("tab", { name: "从云端", exact: true }).click();
   await picker.getByLabel("仓库地址").fill("https://github.com/example/skills");
-  await picker.getByRole("button", { name: "查找技能" }).click();
+  await picker.getByRole("button", { name: "查找 skills" }).click();
   await picker.getByRole("button", { name: "全选", exact: true }).click();
   await picker
     .getByRole("button", { name: "下载所选（2）", exact: true })
     .click();
-  await expect(picker.getByRole("status")).toContainText("已保存 1 / 2 个技能");
+  await expect(picker.getByRole("status")).toContainText(
+    "已保存 1 / 2 个 skill",
+  );
   await expect(picker).toBeVisible();
   await expect(
     page.getByRole("dialog", { name: "添加到项目", exact: true }),

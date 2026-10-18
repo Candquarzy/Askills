@@ -346,12 +346,12 @@ pub async fn pick_directory(
 ) -> Result<Option<DirectorySelection>> {
     let titles = match purpose.as_str() {
         "import" => (
-            "选择包含 SKILL.md 的技能文件夹",
+            "选择包含 SKILL.md 的 skill 文件夹",
             "Choose a skill folder containing SKILL.md",
         ),
         "project" => ("选择项目文件夹", "Choose a project folder"),
         "discover" => ("选择项目扫描根目录", "Choose a folder to scan for projects"),
-        "library" => ("选择空的技能库目录", "Choose an empty library folder"),
+        "library" => ("选择空的 skills 库目录", "Choose an empty library folder"),
         _ => return Err(AppError::new("InvalidSelection", "不支持的目录用途")),
     };
     work(state.inner().clone(), move |w, _| {
@@ -690,7 +690,7 @@ pub async fn get_revision_diff(
         if before.skill.id != after.skill.id {
             return Err(AppError::new(
                 "InvalidComparison",
-                "只能比较同一技能的不同版本",
+                "只能比较同一 skill 的不同版本",
             ));
         }
         let old =

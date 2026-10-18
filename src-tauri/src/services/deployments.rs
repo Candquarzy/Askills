@@ -210,7 +210,7 @@ fn target(project: &Path, name: &str, agent: &str) -> Result<PathBuf> {
     {
         return Err(error(
             "InvalidSkillName",
-            "技能名称必须是安全的小写字母、数字和连字符",
+            "skill 名称必须是安全的小写字母、数字和连字符",
         ));
     }
     let upper = name.to_ascii_uppercase();
@@ -222,7 +222,7 @@ fn target(project: &Path, name: &str, agent: &str) -> Result<PathBuf> {
     {
         return Err(error(
             "InvalidSkillName",
-            "技能名称与 Windows 保留设备名称冲突",
+            "skill 名称与 Windows 保留设备名称冲突",
         ));
     }
     let directory = match agent {
@@ -248,12 +248,12 @@ fn check_revision(store: &Store, revision: &Revision, cancel: &AtomicBool) -> Re
     let real = fs::canonicalize(path).map_err(io)?;
     let root = fs::canonicalize(&store.library_root).map_err(io)?;
     if !real.starts_with(&root) || real == root {
-        return Err(error("UnsafePath", "技能版本不在授权技能库内"));
+        return Err(error("UnsafePath", "skill 版本不在授权 skills 库内"));
     }
     if safe_fs::hash_tree(path, cancel)? != revision.hash {
         return Err(error(
             "RevisionModified",
-            "技能库版本已被外部修改，请重新导入后再安装",
+            "skills 库版本已被外部修改，请重新导入后再安装",
         ));
     }
     Ok(())
@@ -431,7 +431,7 @@ pub fn plan_cancellable(
     if project_root.starts_with(&library_root) || project_root.starts_with(&data_root) {
         return Err(error(
             "UnsafePath",
-            "不能将 Askills 数据目录或技能库作为部署项目",
+            "不能将 Askills 数据目录或 skills 库作为部署项目",
         ));
     }
     let before = saved_list(store)?
@@ -439,7 +439,7 @@ pub fn plan_cancellable(
         .find(|entry| Path::new(&entry.view.target_path) == path);
     let conflict = if let Some(existing) = before.as_ref() {
         if existing.view.skill_id != revision.skill_id {
-            Some("此名称已由不同来源的技能使用".into())
+            Some("此名称已由不同来源的 skill 使用".into())
         } else {
             match filesystem::verify_entry_cancellable(&path, existing, cancel) {
                 Ok(()) => None,
@@ -467,7 +467,7 @@ pub fn plan_cancellable(
         warnings: vec![
             "链接绑定固定版本；绝对链接无法随 Git 移到其他电脑。".into(),
             if agent == "codex" {
-                "Cursor 也可能读取 .agents/skills 中的技能。".into()
+                "Cursor 也可能读取 .agents/skills 中的 skill。".into()
             } else {
                 "安装结果仍需在对应 Agent 中刷新并验证。".into()
             },
@@ -548,7 +548,7 @@ pub fn apply(store: &mut Store, plan_id: &str, cancel: &AtomicBool) -> Result<De
     }
     let revision = store.revision(&saved.view.revision_id)?;
     if revision.path != saved.revision_path || revision.hash != saved.hash {
-        return Err(error("PlanExpired", "技能版本已变化"));
+        return Err(error("PlanExpired", "skill 版本已变化"));
     }
     check_revision(store, &revision, cancel)?;
     let current = saved_list(store)?

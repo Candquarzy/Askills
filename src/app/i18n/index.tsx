@@ -20,7 +20,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     document.documentElement.lang = locale;
     document.title =
-      locale === "en" ? "Askills · Skill Manager" : "Askills · 技能管理";
+      locale === "en" ? "Askills · Skill Manager" : "Askills · skills 管理";
   }, [locale]);
   return (
     <I18nContext

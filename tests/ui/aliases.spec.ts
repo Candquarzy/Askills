@@ -13,7 +13,7 @@ test("显示名称可搜索和恢复，部署仍使用原技能版本", async ({
   await expect(
     page.getByRole("heading", { name: "我的异步工具", exact: true }),
   ).toBeVisible();
-  await page.getByRole("textbox", { name: "搜索技能" }).fill("我的异步工具");
+  await page.getByRole("textbox", { name: "搜索 skills" }).fill("我的异步工具");
   await expect(page.locator(".skill-card")).toHaveCount(1);
   await page.getByRole("button", { name: "添加到项目", exact: true }).click();
   await page.getByRole("button", { name: "预览变更" }).click();

@@ -63,7 +63,7 @@ fn open_lock(path: &Path) -> Result<File> {
     FileExt::try_lock_exclusive(&file).map_err(|_| {
         AppError::new(
             "LibraryBusy",
-            "此数据目录或技能库正在被另一个 Askills 实例使用",
+            "此数据目录或 skills 库正在被另一个 Askills 实例使用",
         )
     })?;
     Ok(file)
@@ -82,7 +82,10 @@ fn safe_library_root(path: &Path) -> Result<()> {
             .components()
             .any(|component| matches!(component, Component::Normal(_)))
     {
-        return Err(AppError::new("UnsafeLibraryRoot", "技能库不能是磁盘根目录"));
+        return Err(AppError::new(
+            "UnsafeLibraryRoot",
+            "skills 库不能是磁盘根目录",
+        ));
     }
     let dangerous = [
         ".git",
@@ -104,7 +107,7 @@ fn safe_library_root(path: &Path) -> Result<()> {
     {
         return Err(AppError::new(
             "UnsafeLibraryRoot",
-            "请选择专用技能库目录，不要使用系统、凭据或 Agent 配置目录",
+            "请选择专用 skills 库目录，不要使用系统、凭据或 Agent 配置目录",
         ));
     }
     for variable in ["HOME", "USERPROFILE"] {
@@ -113,7 +116,7 @@ fn safe_library_root(path: &Path) -> Result<()> {
         {
             return Err(AppError::new(
                 "UnsafeLibraryRoot",
-                "技能库不能是用户主目录本身",
+                "skills 库不能是用户主目录本身",
             ));
         }
     }
@@ -137,7 +140,7 @@ fn initialize_library(path: &Path) -> Result<(PathBuf, String, File)> {
             if entry.file_name() != ".askills.lock" || !metadata.is_file() || is_link(&metadata) {
                 return Err(AppError::new(
                     "DirectoryNotEmpty",
-                    "目标目录包含现有内容；请选择空目录或已有 Askills 技能库",
+                    "目标目录包含现有内容；请选择空目录或已有 Askills skills 库",
                 ));
             }
         }
@@ -148,7 +151,7 @@ fn initialize_library(path: &Path) -> Result<(PathBuf, String, File)> {
         if identity.schema_version != 1 || Uuid::parse_str(&identity.id).is_err() {
             return Err(AppError::new(
                 "InvalidLibrary",
-                "技能库标记无效或版本不受支持",
+                "skills 库标记无效或版本不受支持",
             ));
         }
         identity
@@ -335,7 +338,7 @@ impl Store {
         if identity.id != self.library_id || identity.schema_version != 1 {
             return Err(AppError::new(
                 "LibraryChanged",
-                "技能库目录已被外部替换，请重启并重新检查",
+                "skills 库目录已被外部替换，请重启并重新检查",
             ));
         }
         Ok(())
@@ -353,7 +356,7 @@ impl Store {
         if count != 0 {
             return Err(AppError::new(
                 "LibraryNotEmpty",
-                "已有技能时不能更换库位置；此版本仅支持空库设置",
+                "已有 skill 时不能更换库位置；此版本仅支持空库设置",
             ));
         }
         // Deployment modules store their own tables. A nonempty deployment/operation table
@@ -382,20 +385,23 @@ impl Store {
                 if count > 0 {
                     return Err(AppError::new(
                         "LibraryInUse",
-                        "存在部署或恢复记录，暂不能更换技能库位置",
+                        "存在部署或恢复记录，暂不能更换 skills 库位置",
                     ));
                 }
             }
         }
         safe_library_root(path)?;
         if path.starts_with(&current) || current.starts_with(path) {
-            return Err(AppError::new("UnsafeLibraryRoot", "新旧技能库不能互相嵌套"));
+            return Err(AppError::new(
+                "UnsafeLibraryRoot",
+                "新旧 skills 库不能互相嵌套",
+            ));
         }
         let (root, id, lock) = initialize_library(path)?;
         if fs::read_dir(root.join("skills"))?.next().is_some() {
             return Err(AppError::new(
                 "LibraryNotEmpty",
-                "当前版本只能切换到空技能库",
+                "当前版本只能切换到空 skills 库",
             ));
         }
         let settings = Settings {
@@ -436,7 +442,7 @@ impl Store {
                 row.get(0)
             })
             .optional()?;
-        serde_json::from_str(&json.ok_or_else(|| AppError::new("SkillNotFound", "技能不存在"))?)
+        serde_json::from_str(&json.ok_or_else(|| AppError::new("SkillNotFound", "skill 不存在"))?)
             .map_err(Into::into)
     }
 
@@ -484,7 +490,7 @@ impl Store {
         if path_key(Path::new(&revision.path)) != path_key(&expected) {
             return Err(AppError::new(
                 "InvalidRevisionPath",
-                "版本路径与技能库目录不匹配",
+                "版本路径与 skills 库目录不匹配",
             ));
         }
         canonical_directory(&expected)?;
@@ -507,7 +513,7 @@ impl Store {
         if preview.hash != revision.hash {
             return Err(AppError::new(
                 "DriftDetected",
-                "技能库版本已被外部修改，停止读取受信版本；请重新导入来源",
+                "skills 库版本已被外部修改，停止读取受信版本；请重新导入来源",
             ));
         }
         let skill = self.skill(&revision.skill_id)?;
@@ -727,12 +733,12 @@ impl Store {
             if index >= 10_000 {
                 return Err(AppError::new(
                     "LimitExceeded",
-                    "技能库超过 10,000 个技能目录",
+                    "skills 库超过 10,000 个 skill 目录",
                 ));
             }
             let entry = entry?;
             if is_link(&fs::symlink_metadata(entry.path())?) {
-                return Err(AppError::new("UnsafeLink", "技能库中出现链接目录"));
+                return Err(AppError::new("UnsafeLink", "skills 库中出现链接目录"));
             }
             if !entry.file_type()?.is_dir() {
                 continue;
@@ -749,7 +755,7 @@ impl Store {
             {
                 return Err(AppError::new(
                     "InvalidManifest",
-                    "技能清单版本、目录或版本列表无效",
+                    "skill 清单版本、目录或版本列表无效",
                 ));
             }
             let mut revision_ids = std::collections::HashSet::new();
@@ -760,7 +766,7 @@ impl Store {
                 {
                     return Err(AppError::new(
                         "InvalidManifest",
-                        "版本所属技能或版本 ID 不一致",
+                        "版本所属 skill 或版本 ID 不一致",
                     ));
                 }
                 if revision.path != format!("revisions/{}", revision.hash)
@@ -768,7 +774,7 @@ impl Store {
                 {
                     return Err(AppError::new(
                         "InvalidManifest",
-                        "版本相对路径或来源身份与技能清单不一致",
+                        "版本相对路径或来源身份与 skill 清单不一致",
                     ));
                 }
                 revision.path = display_path(&self.expected_revision_path(revision)?);
@@ -779,7 +785,7 @@ impl Store {
             {
                 return Err(AppError::new(
                     "InvalidManifest",
-                    "技能清单版本计数或当前版本无效",
+                    "skill 清单版本计数或当前版本无效",
                 ));
             }
             let transaction = self.conn.unchecked_transaction()?;
@@ -801,7 +807,7 @@ impl Store {
             if index >= 1_000 {
                 return Err(AppError::new(
                     "LimitExceeded",
-                    "暂存区超过 1,000 个未完成操作；请检查技能库",
+                    "暂存区超过 1,000 个未完成操作；请检查 skills 库",
                 ));
             }
             let entry = entry?;
@@ -844,7 +850,7 @@ impl Store {
         {
             return Err(AppError::new(
                 "InvalidProject",
-                "项目不能包含技能库，也不能位于技能库内部",
+                "项目不能包含 skills 库，也不能位于 skills 库内部",
             ));
         }
         let key = path_key(&canonical);

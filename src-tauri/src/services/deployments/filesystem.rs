@@ -161,7 +161,7 @@ pub(super) fn verify_entry_cancellable(
             return Err(error("EntryReplaced", "链接目标发生改变"));
         }
         if safe_fs::hash_tree(&expected, cancel)? != entry.hash {
-            return Err(error("RevisionModified", "链接所指的技能版本已被编辑"));
+            return Err(error("RevisionModified", "链接所指的 skill 版本已被编辑"));
         }
     }
     cancelled(cancel)?;

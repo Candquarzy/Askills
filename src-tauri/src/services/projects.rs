@@ -61,7 +61,7 @@ fn record(
     if budget.skills > MAX_SKILLS {
         return Err(AppError::new(
             "ScanLimitExceeded",
-            "扫描超过 4,000 个技能入口",
+            "扫描超过 4,000 个 skill 入口",
         ));
     }
     let mut skill = DetectedSkill {

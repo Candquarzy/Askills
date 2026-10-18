@@ -23,7 +23,7 @@ test("右键不会打开技能详情；重命名作用于右键目标，键盘�
   await page.goto("/");
   const card = page.locator(".skill-card").first();
   await card.click({ button: "right" });
-  await expect(page.getByRole("menu", { name: "技能操作" })).toBeVisible();
+  await expect(page.getByRole("menu", { name: "skill 操作" })).toBeVisible();
   expect(await invocations(page, "get_document")).toHaveLength(0);
   await page.screenshot({ path: info.outputPath("skill-menu.png") });
   await page.getByRole("menuitem", { name: "重命名", exact: true }).click();
@@ -117,7 +117,7 @@ test("同名技能的重复目标不能批量写入", async ({ page }) => {
     .click();
   await page.getByRole("button", { name: "预览变更" }).click();
   await expect(page.getByRole("dialog")).toContainText(
-    "所选技能的安装路径重复",
+    "所选 skill 的安装路径重复",
   );
   await expect(
     page.getByRole("button", { name: "确认添加（0）" }),
@@ -137,8 +137,10 @@ test("项目备注名、右键添加技能和批量删除指向正确项目", as
   await expect(second).toContainText("我的项目备注");
   await expect(second).toContainText("D:/Example/Second");
   await second.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "添加技能" }).click();
-  const picker = page.getByRole("dialog", { name: "为 我的项目备注 添加技能" });
+  await page.getByRole("menuitem", { name: "添加 skills" }).click();
+  const picker = page.getByRole("dialog", {
+    name: "为 我的项目备注 添加 skills",
+  });
   await expect(picker).toBeVisible();
   await picker.getByRole("button", { name: "关闭对话框" }).click();
   await expect(page.locator(".project-detail")).toContainText("我的项目备注");
@@ -147,7 +149,7 @@ test("项目备注名、右键添加技能和批量删除指向正确项目", as
   await page.getByRole("button", { name: "全选", exact: true }).click();
   await page.getByRole("button", { name: "删除所选", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText(
-    "项目文件和已安装技能保留",
+    "项目文件和已安装 skill 保留",
   );
   await page.getByRole("button", { name: "确认删除（2）" }).click();
   await expect(page.locator(".project-card")).toHaveCount(0);

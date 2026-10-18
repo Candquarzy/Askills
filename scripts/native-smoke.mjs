@@ -142,8 +142,9 @@ public static class AskillsWindowSmoke {
 try {
   await connectWindow();
   await expectStartupSize();
+  assert.equal(await nativeWindowAction("title"), "Askills · skills 管理");
   await expect(
-    page.getByRole("button", { name: "导入本地技能" }),
+    page.getByRole("button", { name: "导入本地 skill" }),
   ).toBeEnabled();
   const invoke = (command, args = {}) =>
     page.evaluate(
@@ -151,7 +152,7 @@ try {
       { command, args },
     );
   await page.evaluate(() =>
-    document.fonts.load('400 14px "MiSans"', "技能库 ABC 012"),
+    document.fonts.load('400 14px "MiSans"', "skills 库 ABC 012"),
   );
   assert(
     await page.evaluate(() =>
@@ -335,7 +336,7 @@ try {
       .getByLabel("仓库地址")
       .fill("https://github.com/Candquarzy/Askills");
     await page.getByLabel("分支、标签或 commit（可选）").fill("main");
-    await page.getByRole("button", { name: "查找技能" }).click();
+    await page.getByRole("button", { name: "查找 skills" }).click();
     const candidate = page
       .locator(".candidate-row")
       .filter({ hasText: ".agents/skills/tauri-setup" });
@@ -359,17 +360,17 @@ try {
       await candidate
         .getByRole("button", { name: "预览", exact: true })
         .click();
-      const dialog = page.getByRole("dialog", { name: "预览技能" });
+      const dialog = page.getByRole("dialog", { name: "预览 skill" });
       await expect(dialog).toBeVisible({ timeout: 90_000 });
       assert.equal((await invoke("get_snapshot")).skills.length, 0);
       await dialog
-        .getByRole("button", { name: "下载到技能库", exact: true })
+        .getByRole("button", { name: "下载到 skills 库", exact: true })
         .click();
       await expect(dialog).not.toBeVisible({ timeout: 30_000 });
     }
     await page
       .getByRole("navigation")
-      .getByRole("button", { name: /^技能库/ })
+      .getByRole("button", { name: /^skills 库/ })
       .click();
     await page.getByRole("button", { name: /^tauri-setup Create/ }).click();
     await expect(
