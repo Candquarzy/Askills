@@ -1,0 +1,121 @@
+# 本地测试与验收
+
+当前验收平台为 Windows。请在仓库根目录执行命令；不要用重要项目练习冲突或故障场景。
+
+## 1. 启动桌面版
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm tauri dev
+```
+
+需要 Node.js 24、项目锁定版本的 pnpm、Rust stable、MSVC C++ 与 WebView2。开发时保持终端开启；关闭后用 Ctrl+C 停止开发服务器。
+
+窗口应出现“技能库 / 项目 / 来源 / 设置”。首次启动是空库，点击设置可看到实际库位置。已有库保持原状，不会注入示例数据。`pnpm dev` 只有浏览器预览，无法验证文件操作。
+
+## 2. 创建独立的测试素材
+
+在另一个 PowerShell 窗口中执行：
+
+```powershell
+$testRoot = Join-Path ([IO.Path]::GetTempPath()) ('askills-manual-' + [guid]::NewGuid())
+$skillPath = Join-Path $testRoot 'demo-skill'
+$projectPath = Join-Path $testRoot 'demo-project'
+New-Item -ItemType Directory -Path $skillPath, $projectPath | Out-Null
+$sample = @'
+---
+name: demo-skill
+description: 用于 Askills 本地验收的最小技能
+license: MIT
+---
+# Demo skill
+这是版本 v1，仅用于验证文件管理。
+'@
+[IO.File]::WriteAllText((Join-Path $skillPath 'SKILL.md'), $sample, [Text.UTF8Encoding]::new($false))
+Write-Output "技能目录：$skillPath"
+Write-Output "项目目录：$projectPath"
+```
+
+本例把测试素材放在新的临时目录中，不接触已有项目。保留这个终端，后面会继续使用变量。
+
+## 3. 验证技能库
+
+1. 点击“导入本地技能”，选择上面的 `demo-skill` 文件夹。
+2. 预览应显示名称、描述、文件数、许可证和正文。先关闭预览：库应仍为空。
+3. 再次选择并确认导入，库中出现 `demo-skill`；搜索 `demo` 能找到它。
+4. 点击技能卡片，切换“阅读”和“原始 Markdown”。原文应包含 frontmatter。
+5. 再导入相同目录：内容未变时不增加版本数。来源目录和原始文件仍存在。
+
+## 4. 验证项目部署、更新和回滚
+
+1. 到“项目”点击“添加项目”，选择测试 `demo-project`。普通空目录也可以登记。
+2. 从技能库选 `demo-skill` → “添加到项目” → 测试项目 → Codex → **复制**。
+3. 预览目标应为 `<测试项目>/.agents/skills/demo-skill`。确认前没有此入口；确认后其中的 `SKILL.md` 应为 v1，同时生成项目 `askills.lock.json`。
+4. 在原 PowerShell 中修改来源文件，然后重新导入：
+
+```powershell
+$sampleV2 = $sample.Replace('版本 v1', '版本 v2')
+[IO.File]::WriteAllText((Join-Path $skillPath 'SKILL.md'), $sampleV2, [Text.UTF8Encoding]::new($false))
+```
+
+5. 技能库应显示两个版本。重新打开卡片可选旧版本、比较文件变化；此时项目文件仍应为 v1。
+6. 选择最新版本，再添加到同一项目和同一 Agent 目录，预览升级后确认。项目应变为 v2。
+7. 在“项目”选择测试项目，点击“回滚”并确认，项目回到 v1；库仍保留两个版本。
+8. 点击“停用”并确认，项目技能入口移除，来源目录和库快照保留。
+9. 再用 **自动模式** 安装一次。在 Windows 上可能使用 symlink 或 junction，界面会显示实际方式。停用后链接消失，库文件仍存在。
+
+本步骤只证明目录部署。对应工具能否发现或调用，需要另开 Codex/Cursor 会话、记录工具版本并实际验证。`.agents/skills` 可能同时被多个 Agent 读取。
+
+## 5. 验证外部修改保护
+
+重新用复制模式安装后，只在测试项目中修改已复制的 `SKILL.md`，再尝试停用或升级。预期看到错误/内容变化提示，修改后的文件保留，不能显示操作成功。
+
+不要手工删除真实项目的恢复记录或篡改数据库。故障恢复、入口替换和中断复制等场景用下一节的 Rust 临时目录测试验证；当前界面尚无自动接管或修复向导。
+
+## 6. 验证 GitHub 来源
+
+1. 到“来源”输入 `https://github.com/Candquarzy/Askills`，分支填 `main`，点击“查找技能”。
+2. 找到 `.agents/skills/tauri-setup`，点击“下载并预览”。关闭预览不会入库。
+3. 再预览并确认导入。卡片应标记 GitHub，详情能看到来源与完整版本信息。
+4. 点击“检查更新”，重新解析来源；同一提交与内容不会重复增加版本。项目不会因来源变动自动升级。
+
+这是一次真实网络请求；断网或达到 GitHub API 配额时应显示失败，不能伪造“已导入”。不需要配置个人 GitHub 凭据。
+
+## 7. 自动化检查
+
+按模块运行 Rust 测试：
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib storage::tests
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::library
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::projects
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::deployments
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib sources::github
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib commands::tests
+```
+
+完整检查：
+
+```powershell
+pnpm format:check
+pnpm check
+pnpm build
+pnpm test:ui
+cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+```
+
+`test:ui` 在 Windows 使用已安装的 Edge，其他平台需要 `pnpm exec playwright install chromium`。它使用 IPC fixture 验证前端流程，不会访问真实库、项目或网络。Rust 用例在临时目录执行真实文件操作；普通全量测试默认跳过联网用例。
+
+验证已构建的真实 Windows 桌面应用：
+
+```powershell
+pnpm tauri build --debug --no-bundle -- --locked
+pnpm test:native
+pnpm test:native --github
+```
+
+原生测试启动 `src-tauri/target/debug/askills.exe`，使用独立临时数据目录和 WebView2 缓存，通过仅本机的调试端口操作真实 IPC。结束后关闭测试进程并清理它创建的临时目录，证据保存在 `test-results/native/`。`--github` 额外在原生 UI 中执行本仓库公共技能的查询、下载、确认导入与阅读；不修改真实用户技能库。临时数据目录覆盖只在调试构建启用。
+
+这些检查不能代替正式安装包、macOS/Linux 或真实 Agent 技能加载验收。项目当前记录的结果见 [验证记录](validation.md)。
