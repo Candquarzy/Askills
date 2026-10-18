@@ -171,8 +171,7 @@ h3 {
 .muted,
 .subtitle,
 .footnote,
-.skill-description,
-.source-note p {
+.skill-description {
   color: var(--text-secondary);
 }
 .path {

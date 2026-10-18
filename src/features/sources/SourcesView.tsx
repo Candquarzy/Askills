@@ -4,7 +4,6 @@ import {
   GitFork as Github,
   ArrowDownToLine,
   Search,
-  ShieldCheck,
   Eye,
   Check,
 } from "lucide-react";
@@ -397,17 +396,6 @@ export function SourcesView({
           ))}
         </section>
       )}
-      <div className="source-note">
-        <ShieldCheck size={22} />
-        <div>
-          <h3>{t("保留来源，也保留选择权")}</h3>
-          <p>
-            {t(
-              "下载会保存到技能库；预览仅临时读取内容，关闭后不会入库。记录来源、提交和许可证，项目安装与升级仍由你确认。",
-            )}
-          </p>
-        </div>
-      </div>
       <section
         className="source-examples repository-history"
         aria-label={t("历史记录（最近10条）")}

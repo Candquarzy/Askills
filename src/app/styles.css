@@ -746,25 +746,6 @@ code {
   height: 41px;
   font-size: 12px;
 }
-.source-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 25px 0;
-  color: var(--accent-text);
-  max-width: 800px;
-}
-.source-note svg {
-  flex-shrink: 0;
-}
-.source-note p {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.9;
-}
-.source-note h3 {
-  font-size: 12px;
-}
 .source-examples h3 {
   color: var(--text-secondary);
   font-size: 11px;
@@ -1125,7 +1106,7 @@ code {
 }
 
 .repository-history {
-  margin-bottom: 24px;
+  margin: 24px 0;
 }
 
 .font-license {

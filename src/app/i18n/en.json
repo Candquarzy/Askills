@@ -229,8 +229,6 @@
   "下载": "Download",
   "预览": "Preview",
   "取消选择": "Deselect",
-  "保留来源，也保留选择权": "Keep the source. Keep control.",
-  "下载会保存到技能库；预览仅临时读取内容，关闭后不会入库。记录来源、提交和许可证，项目安装与升级仍由你确认。": "Downloads are saved to your library. Previews are temporary and closing them does not import anything. Source, commit and license are recorded. You confirm project installations and upgrades.",
   "可以从这些社区仓库开始": "Start with these community repositories",
   "这些是本项目开发 skills 的来源，属于第三方社区内容。": "These repositories supply this project's development skills and contain third-party community content.",
   "个性化": "Personalization",

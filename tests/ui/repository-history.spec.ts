@@ -84,7 +84,7 @@ test("只保存最近10个仓库，重复地址前移，选择历史不自动查
     ),
   ).toBeGreaterThanOrEqual(
     await page
-      .locator(".source-note")
+      .locator(".source-form")
       .evaluate((element) => element.getBoundingClientRect().bottom),
   );
   expect(
