@@ -57,6 +57,7 @@ const initial: Snapshot = {
   deployments: [],
   libraryRoot: "",
   recovery: [],
+  repositoryHistory: [],
 };
 
 export default function App() {
@@ -439,6 +440,10 @@ export default function App() {
             )}
             {page === "sources" && (
               <SourcesView
+                repositoryHistory={snapshot.repositoryHistory}
+                historyChanged={(repositoryHistory) =>
+                  setSnapshot((current) => ({ ...current, repositoryHistory }))
+                }
                 busy={disabled}
                 run={run}
                 prepared={(value) =>
@@ -492,6 +497,10 @@ export default function App() {
         </div>
         {dialog?.type === "project-add" && (
           <ProjectSkillPicker
+            repositoryHistory={snapshot.repositoryHistory}
+            historyChanged={(repositoryHistory) =>
+              setSnapshot((current) => ({ ...current, repositoryHistory }))
+            }
             project={dialog.project}
             skills={snapshot.skills}
             busy={!!busy}

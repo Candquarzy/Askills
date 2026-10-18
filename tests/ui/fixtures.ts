@@ -21,6 +21,8 @@ type FixtureOptions = {
   sourceCandidateCount?: number;
   downloadDelayMs?: number;
   downloadFailures?: Record<string, number>;
+  repositoryHistory?: string[];
+  resolveFailure?: boolean;
 };
 
 declare global {
@@ -99,6 +101,12 @@ export async function installBackendFixture(
 ) {
   await page.addInitScript(
     ({ options, rust, security, revisions }) => {
+      let repositoryHistory: string[] =
+        JSON.parse(
+          localStorage.getItem("askills-test-repository-history") || "null",
+        ) ||
+        options.repositoryHistory ||
+        [];
       const skills = options.emptyLibrary ? [] : [rust, security];
       const projects: Project[] = [
         {
@@ -240,8 +248,31 @@ export async function installBackendFixture(
                   deployments,
                   libraryRoot: "D:/Example/Askills Library",
                   recovery: [],
+                  repositoryHistory,
                 };
                 return structuredClone(snapshot);
+              }
+              case "remember_repository": {
+                const value = String(args.repository)
+                  .trim()
+                  .replace(/^https:\/\/github\.com\//i, "")
+                  .replace(/\/+$/, "")
+                  .replace(/\.git$/, "");
+                if (!/^[a-z0-9-]{1,39}\/[a-z0-9_.-]{1,100}$/i.test(value))
+                  throw error(
+                    "github_repository",
+                    "请输入有效的 GitHub 仓库地址",
+                  );
+                const address = `https://github.com/${value.toLowerCase()}`;
+                repositoryHistory = [
+                  address,
+                  ...repositoryHistory.filter((item) => item !== address),
+                ].slice(0, 10);
+                localStorage.setItem(
+                  "askills-test-repository-history",
+                  JSON.stringify(repositoryHistory),
+                );
+                return [...repositoryHistory];
               }
               case "get_document": {
                 const item = revisions.find(
@@ -412,6 +443,8 @@ export async function installBackendFixture(
               // Both transports expose the same catalog shape; the opaque id
               // preserves which backend prepared it.
               case "resolve_github":
+                if (options.resolveFailure)
+                  throw error("NetworkUnavailable", "模拟来源网络不可用");
                 return {
                   id: command === "resolve_git" ? "catalog-git" : "catalog-one",
                   repository: String(args.repository),

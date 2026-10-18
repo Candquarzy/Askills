@@ -22,6 +22,8 @@ export function SourcesView({
   run,
   prepared,
   downloaded,
+  repositoryHistory,
+  historyChanged,
   seed,
   embedded = false,
 }: {
@@ -29,6 +31,8 @@ export function SourcesView({
   run: RunOperation;
   prepared: (value: PreparedImport) => void;
   downloaded: (values: Skill[], continueToProject: boolean) => void;
+  repositoryHistory: string[];
+  historyChanged: (values: string[]) => void;
   seed: Skill | null;
   embedded?: boolean;
 }) {
@@ -60,11 +64,19 @@ export function SourcesView({
     setCatalog(null);
     const result = await run(
       method === "git" ? "使用本机 Git 拉取固定版本" : "解析 GitHub 固定版本",
-      () =>
-        call<Catalog>(method === "git" ? "resolve_git" : "resolve_github", {
+      async () => {
+        const history = await call<string[]>("remember_repository", {
           repository,
-          reference,
-        }),
+        });
+        historyChanged(history);
+        return call<Catalog>(
+          method === "git" ? "resolve_git" : "resolve_github",
+          {
+            repository,
+            reference,
+          },
+        );
+      },
     );
     if (result) setCatalog(result);
   }
@@ -240,6 +252,31 @@ export function SourcesView({
               }}
             />
           </label>
+          {!!repositoryHistory.length && (
+            <label className="field repository-history">
+              最近使用的仓库（最多 10 个）
+              <select
+                aria-label="仓库历史记录"
+                value=""
+                disabled={busy}
+                onChange={(event) => {
+                  if (!event.target.value) return;
+                  setRepository(event.target.value);
+                  setReference("");
+                  setCatalog(null);
+                }}
+              >
+                <option value="" disabled>
+                  选择历史地址填入上方
+                </option>
+                {repositoryHistory.map((address) => (
+                  <option key={address} value={address}>
+                    {address}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="form-inline">
             <label className="field">
               分支、标签或 commit（可选）

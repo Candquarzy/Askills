@@ -14,6 +14,8 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use uuid::Uuid;
 
+mod repository_history;
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LibraryIdentity {
@@ -302,6 +304,7 @@ impl Store {
              CREATE TABLE IF NOT EXISTS revisions(id TEXT PRIMARY KEY, skill_id TEXT NOT NULL REFERENCES skills(id), hash TEXT NOT NULL, source_version TEXT NOT NULL, json TEXT NOT NULL, UNIQUE(skill_id,hash,source_version));
              CREATE INDEX IF NOT EXISTS revisions_by_skill ON revisions(skill_id);
              CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, path_key TEXT NOT NULL UNIQUE, json TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS repository_history(position INTEGER PRIMARY KEY, repository TEXT NOT NULL UNIQUE);
              PRAGMA user_version=1;
              COMMIT;"
         )?;

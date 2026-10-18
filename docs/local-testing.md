@@ -93,10 +93,13 @@ Git 模式使用本机代理/凭据和独立临时仓库，不在项目中执行
 
 ## 7. 自动化检查
 
+仓库历史可这样验证：在来源页查找一个仓库，看到“最近使用的仓库”下拉框；退出并重新打开应用后仍可选择。选择历史项应填入地址、清空旧分支，不自动查找。依次查找超过 10 个不同仓库，只保留最近 10 个；再次使用已有地址会前移而不重复。网络失败保留合法地址，非法/含凭据地址不保存。项目内“从云端”能选择同一份历史。
+
 按模块运行 Rust 测试：
 
 ```powershell
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib storage::tests
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib storage::repository_history
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::library
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::projects
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib services::deployments

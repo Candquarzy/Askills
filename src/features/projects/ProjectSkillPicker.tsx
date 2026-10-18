@@ -21,6 +21,8 @@ export function ProjectSkillPicker({
   importLocal,
   prepared,
   downloaded,
+  repositoryHistory,
+  historyChanged,
 }: {
   project: Project;
   skills: Skill[];
@@ -31,6 +33,8 @@ export function ProjectSkillPicker({
   importLocal: () => void;
   prepared: (value: PreparedImport) => void;
   downloaded: (values: Skill[], continueToProject: boolean) => void;
+  repositoryHistory: string[];
+  historyChanged: (values: string[]) => void;
 }) {
   const [tab, setTab] = useState("library");
   const [query, setQuery] = useState("");
@@ -134,6 +138,8 @@ export function ProjectSkillPicker({
         {tab === "cloud" && (
           <div className="picker-content">
             <SourcesView
+              repositoryHistory={repositoryHistory}
+              historyChanged={historyChanged}
               busy={busy}
               run={run}
               prepared={prepared}

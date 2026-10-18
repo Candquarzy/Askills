@@ -6,7 +6,7 @@
 
 这些结果验证前端行为及 IPC 参数，不能替代 Rust 文件系统测试、真实 GitHub 下载测试或 Tauri 原生窗口验收。
 
-当前覆盖 14 个流程，包括显示名称、项目内三种添加入口与本地 Git 云端入口、API/Git 切换和缺失 Git 时回到 API。原生联网测试使用 `pnpm test:native --github` 或 `--git`，详见 [本地验收](../../docs/local-testing.md)。
+当前覆盖 25 个流程，包括显示名称、项目内添加、API/Git 切换、独立下载/预览/多选、顶部进度、部分失败/取消，以及仓库历史的最近10条、去重、重载和项目共用。预览按原文显示，翻译功能已移除。原生联网测试使用 `pnpm test:native --github` 或 `--git`，详见 [本地验收](../../docs/local-testing.md)。
 
 可选环境变量：
 

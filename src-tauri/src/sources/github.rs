@@ -459,6 +459,11 @@ fn catalog_from_tree(
     })
 }
 
+pub fn canonical_repository(input: &str) -> Result<String> {
+    let repo = parse_repository(input)?;
+    Ok(format!("https://github.com/{}/{}", repo.owner, repo.name))
+}
+
 fn parse_repository(input: &str) -> Result<Repository> {
     let input = input.trim();
     let path = if input.contains("://") {

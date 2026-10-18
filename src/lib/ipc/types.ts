@@ -75,6 +75,7 @@ export type Snapshot = {
   deployments: Deployment[];
   libraryRoot: string;
   recovery: string[];
+  repositoryHistory: string[];
 };
 export type ImportPreview = {
   name: string;

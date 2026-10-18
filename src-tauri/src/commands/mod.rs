@@ -190,6 +190,7 @@ pub struct Snapshot {
     deployments: Vec<deployments::Deployment>,
     library_root: String,
     recovery: Vec<String>,
+    repository_history: Vec<String>,
 }
 #[derive(Serialize)]
 pub struct DirectorySelection {
@@ -236,7 +237,18 @@ pub async fn get_snapshot(state: State<'_, Arc<Runtime>>) -> Result<Snapshot> {
             deployments: deployments::list_cancellable(&w.store, c)?,
             library_root: w.store.library_root.to_string_lossy().into_owned(),
             recovery: w.recovery.clone(),
+            repository_history: w.store.repository_history()?,
         })
+    })
+    .await
+}
+#[tauri::command]
+pub async fn remember_repository(
+    state: State<'_, Arc<Runtime>>,
+    repository: String,
+) -> Result<Vec<String>> {
+    work(state.inner().clone(), move |w, _| {
+        w.store.remember_repository(&repository)
     })
     .await
 }

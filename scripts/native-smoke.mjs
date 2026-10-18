@@ -86,6 +86,7 @@ try {
   const snapshot = await invoke("get_snapshot");
   assert.equal(snapshot.skills.length, 0);
   assert.equal(snapshot.projects.length, 0);
+  assert.deepEqual(snapshot.repositoryHistory, []);
   assert.equal(
     path.toNamespacedPath(snapshot.libraryRoot),
     path.toNamespacedPath(path.join(data, "library")),
@@ -170,6 +171,8 @@ try {
       page.getByRole("heading", { name: "Tauri setup", exact: true }),
     ).toBeVisible();
     const imported = await invoke("get_snapshot");
+    const expectedHistory = ["https://github.com/candquarzy/askills"];
+    assert.deepEqual(imported.repositoryHistory, expectedHistory);
     assert.equal(imported.skills.length, 1);
     assert.equal(imported.projects.length, 0);
     assert.match(imported.skills[0].source.commit, /^[0-9a-f]{40}$/);
@@ -191,12 +194,30 @@ try {
     await expect(
       page.getByRole("button", { name: "编辑显示名称" }),
     ).toBeEnabled();
-    const renamed = (await invoke("get_snapshot")).skills[0];
+    const reloaded = await invoke("get_snapshot");
+    assert.deepEqual(reloaded.repositoryHistory, expectedHistory);
+    const renamed = reloaded.skills[0];
     assert.equal(renamed.displayName, "我的 Tauri 工具");
     assert.equal(renamed.name, imported.skills[0].name);
     assert.equal(renamed.latestRevisionId, imported.skills[0].latestRevisionId);
     report.checks.push(
       "display name persisted through real SQLite IPC and frontend reload; original name and revision preserved",
+    );
+    await page
+      .getByRole("navigation")
+      .getByRole("button", { name: "来源", exact: true })
+      .click();
+    await page.getByLabel("分支、标签或 commit（可选）").fill("old-branch");
+    await page
+      .getByRole("combobox", { name: "仓库历史记录" })
+      .selectOption(expectedHistory[0]);
+    await expect(page.getByLabel("仓库地址")).toHaveValue(expectedHistory[0]);
+    await expect(page.getByLabel("分支、标签或 commit（可选）")).toHaveValue(
+      "",
+    );
+    await expect(page.locator(".candidate-row")).toHaveCount(0);
+    report.checks.push(
+      "repository history persisted through SQLite and reload; selecting history fills address without starting a fetch",
     );
   }
   assert.deepEqual(errors, []);

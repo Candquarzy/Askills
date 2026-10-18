@@ -1061,6 +1061,11 @@ code {
   padding: 14px 0;
   border-bottom: 1px solid var(--line);
 }
+
+.repository-history select {
+  width: 100%;
+  text-overflow: ellipsis;
+}
 .source-selection-bar > span {
   margin-right: auto;
 }
