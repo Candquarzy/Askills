@@ -88,17 +88,3 @@ docs/                      实现方案、使用说明、验证记录
 ```
 
 开发 skills 不是应用为用户管理的 skills 库。它们的来源与哈希见 [开发 Skills 说明](docs/development-skills.md)。
-
-## 当前边界
-
-项目版本固定到快照，导入新版本不会自动升级项目。复制模式适合 Git、容器和跨电脑共享；绝对链接只适合本机使用。更改 skills 库位置会复制并校验全部内容、更新受管理项目链接，原目录保留作备份；目标必须为空目录或空的 Askills 库，不合并已有库。
-
-GitHub API 仅支持公共仓库；本地 Git 使用本机已有代理与凭据配置，无需 API 配额。两种方式均只接受 GitHub 仓库地址，存在大小限制及对链接/子模块的拒绝策略；没有应用内登录流程，私有仓库尚未实测。详情见用户指南。Markdown 不执行 HTML、不加载图片或打开外部链接。路径解析拒绝经过链接的父目录。
-
-已通过的检查与尚未完成的原生、真实 Agent 和平台验收分别记录在 [验证记录](docs/validation.md)。
-
-## 协作与许可
-
-本个人项目日常开发直接在 `main` 提交并推送，无需 PR，参见 [参与开发](CONTRIBUTING.md)。CI 在每次 push（所有分支和标签）、PR 或手动触发时执行前端检查、浏览器测试、Windows Rust 测试，并构建正式单文件 EXE。每次运行的产物以 commit SHA 命名，在 [Actions](https://github.com/Candquarzy/Askills/actions/workflows/ci.yml) 的 Artifacts 中保留 14 天；自动构建只有仓库读取权限，不会创建 Release，也不会取消较早提交的构建。
-
-Askills 使用 [MIT](LICENSE) 协议。第三方 skills、MiSans 字体保留各自的许可与版权声明，依赖遵循各自许可。
