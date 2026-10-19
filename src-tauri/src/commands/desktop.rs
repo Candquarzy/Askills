@@ -36,6 +36,11 @@ macro_rules! command {
 }
 
 command!(get_snapshot() -> Snapshot);
+
+#[tauri::command]
+pub async fn list_system_fonts() -> Result<Vec<String>> {
+    super::list_system_fonts().await
+}
 command!(remove_library_skills(skill_ids: Vec<String>) -> ());
 command!(remove_projects(project_ids: Vec<String>) -> ());
 command!(set_project_display_name(project_id: String, display_name: String) -> Project);

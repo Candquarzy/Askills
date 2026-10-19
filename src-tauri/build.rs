@@ -8,6 +8,7 @@ fn main() {
             "get_snapshot",
             "set_locale",
             "set_appearance",
+            "list_system_fonts",
             "remember_repository",
             "set_skill_display_name",
             "set_project_display_name",

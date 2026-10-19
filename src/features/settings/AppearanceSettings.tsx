@@ -2,6 +2,7 @@ import { useI18n } from "../../app/i18n";
 import { useEffect, useState } from "react";
 import { Check, RotateCcw } from "lucide-react";
 import type { Appearance } from "../../lib/ipc/types";
+import { FontSettings } from "./FontSettings";
 import {
   ACCENT_PRESETS,
   DEFAULT_APPEARANCE,
@@ -135,6 +136,7 @@ export function AppearanceSettings({
       <p className="footnote">
         {t("主题色用于按钮、选择状态与焦点提示。设置会自动保存，重启后保留。")}
       </p>
+      <FontSettings value={value} busy={busy} save={save} />
     </section>
   );
 }

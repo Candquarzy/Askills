@@ -9,6 +9,7 @@ const COMMANDS = new Set([
   "set_project_display_name",
   "set_locale",
   "set_appearance",
+  "list_system_fonts",
   "remember_repository",
   "prepare_import",
   "finish_import",

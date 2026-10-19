@@ -261,7 +261,6 @@
   "应用自定义颜色": "Apply custom color",
   "请输入 #RRGGBB 格式的六位颜色。": "Enter a six-digit color in #RRGGBB format.",
   "主题色用于按钮、选择状态与焦点提示。设置会自动保存，重启后保留。": "Accent colors apply to buttons, selections and focus indicators. Settings are saved locally and kept after restart.",
-  "MiSans 字体许可": "MiSans font license (original Chinese)",
   "关闭对话框": "Close dialog",
   "[图片：": "[Image: ",
   "未加载": "not loaded",
@@ -303,5 +302,14 @@
   "删除 {count}": "Removed: {count}",
   "修改 {count}": "Changed: {count}",
   "版本 {hash}": "Version {hash}",
-  "{done} / {total} 个文件 · {percentage}%": "Files: {done} / {total} · {percentage}%"
+  "{done} / {total} 个文件 · {percentage}%": "Files: {done} / {total} · {percentage}%",
+  "界面字体": "Interface font",
+  "刷新字体列表": "Refresh font list",
+  "搜索本机字体": "Search installed fonts",
+  "微软雅黑（默认）": "Microsoft YaHei (default)",
+  "正在读取本机字体…": "Reading installed fonts…",
+  "没有匹配的字体，已保留当前字体和默认选项。": "No matching fonts. The current font and default remain available.",
+  "当前字体未安装，已自动使用默认字体显示。": "The selected font is not installed. The default font is used instead.",
+  "字体预览": "Font preview",
+  "使用本机已安装的字体，选择后自动保存。安装新字体后可刷新列表。": "Use installed fonts. Your choice is saved automatically. Refresh the list after installing a font."
 }

@@ -5,7 +5,13 @@ import { pluginHost } from "../lib/host";
 export const DEFAULT_APPEARANCE: Appearance = {
   mode: "system",
   accentColor: "#005fb8",
+  fontFamily: "Microsoft YaHei",
 };
+
+export function fontStack(family: string) {
+  // Quote one family name so punctuation cannot inject extra CSS values.
+  return `${JSON.stringify(family)}, "Microsoft YaHei", "微软雅黑", system-ui, sans-serif`;
+}
 export const ACCENT_PRESETS = [
   { name: "默认蓝", color: "#005fb8" },
   { name: "鸢尾紫", color: "#744da9" },
@@ -86,6 +92,12 @@ export function accentPalette(input: string, dark: boolean) {
 }
 
 export function useAppearance(appearance: Appearance) {
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty(
+      "--app-font",
+      fontStack(appearance.fontFamily || DEFAULT_APPEARANCE.fontFamily),
+    );
+  }, [appearance.fontFamily]);
   useLayoutEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const host = pluginHost();

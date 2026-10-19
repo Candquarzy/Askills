@@ -4,6 +4,11 @@ import { translate, type Parameters } from "./messages";
 // Native errors retain stable codes. Translate the summary and keep unknown
 // diagnostics verbatim so filesystem paths and upstream output are not lost.
 const summaries: Record<string, string> = {
+  FontEnumerationFailed: "Could not read installed fonts. Please retry.",
+  FontEnumerationUnsupported:
+    "Reading installed fonts is not yet supported on this system.",
+  InvalidFontFamily:
+    "Choose a font name of 1–128 characters without control characters.",
   SelectionExpired: "The folder selection expired. Choose it again.",
   InvalidSelection: "The folder selection is invalid for this operation.",
   SelectionLimit:

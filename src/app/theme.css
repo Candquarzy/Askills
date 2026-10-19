@@ -225,6 +225,33 @@ h3 {
   gap: 16px;
   margin-bottom: 16px;
 }
+
+.font-settings {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
+.font-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.font-settings input,
+.font-settings select {
+  width: 100%;
+  min-width: 0;
+}
+.font-preview {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
 .appearance-heading h2 {
   margin-bottom: 5px;
 }

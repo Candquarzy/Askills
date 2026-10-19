@@ -47,6 +47,7 @@ fn upgrade_preserves_wal_preferences_skills_projects_and_live_deployments() {
         let appearance = Appearance {
             mode: ThemeMode::Dark,
             accent_color: "#123456".into(),
+            font_family: "SimSun".into(),
         };
         old.set_appearance(appearance.clone()).unwrap();
         old.set_locale(Locale::English).unwrap();

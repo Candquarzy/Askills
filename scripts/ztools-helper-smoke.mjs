@@ -90,6 +90,15 @@ try {
   );
   assert.equal(info.version, packageJson.version);
   assert.equal(info.protocolVersion, 1);
+  const [, fonts] = await Promise.all([
+    call("get_snapshot"),
+    call("list_system_fonts"),
+  ]);
+  assert(fonts.includes("Microsoft YaHei"));
+  assert(fonts.includes("Arial"));
+  await assert.rejects(call("list_system_fonts", { path: source }), {
+    code: "InvalidRequest",
+  });
   assert.equal((await call("get_snapshot")).skills.length, 0);
   await assert.rejects(
     call("register_directory_selection", { path: source, purpose: "import" }),
@@ -165,7 +174,7 @@ try {
   );
   await call("set_locale", { locale: "en" });
   await call("set_appearance", {
-    appearance: { mode: "dark", accentColor: "#744da9" },
+    appearance: { mode: "dark", accentColor: "#744da9", fontFamily: "Arial" },
   });
   await call("remember_repository", {
     repository: "https://github.com/Candquarzy/Askills",
@@ -188,6 +197,7 @@ try {
   assert.equal(reloaded.skills[0].displayName, "本地测试");
   assert.equal(reloaded.locale, "en");
   assert.equal(reloaded.appearance.mode, "dark");
+  assert.equal(reloaded.appearance.fontFamily, "Arial");
   assert.equal(
     path.toNamespacedPath(reloaded.libraryRoot),
     path.toNamespacedPath(destination),

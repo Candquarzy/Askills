@@ -1,5 +1,6 @@
 // Runs the installed ZTools in a separate profile. Never touches its normal DB.
 import assert from "node:assert/strict";
+import { checkSystemFonts } from "./system-font-smoke.mjs";
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
 import {
@@ -358,7 +359,7 @@ try {
         type: "plugin",
         path: pluginPath,
         name: manifest.title,
-        featureCode: manifest.features[0].code,
+        featureCode: "settings",
       },
     );
     assert.notEqual(launched?.success, false, JSON.stringify(launched));
@@ -411,17 +412,10 @@ try {
     await expect(page.locator(".sidebar-bottom .version")).toContainText(
       manifest.version,
     );
-    await page.evaluate(() =>
-      document.fonts.load('400 14px "MiSans"', "skills ABC 012"),
+    report.fonts = await checkSystemFonts(page, invoke);
+    report.checks.push(
+      "installed fonts enumerate through Rust IPC; Microsoft YaHei renders locally without font assets",
     );
-    assert(
-      await page.evaluate(() =>
-        Array.from(document.fonts).some(
-          (font) => font.family === "MiSans" && font.status === "loaded",
-        ),
-      ),
-    );
-    report.checks.push("bundled MiSans loaded in the real plugin web contents");
     assert(
       await page
         .locator(".brand img")
@@ -432,6 +426,9 @@ try {
       fullPage: true,
     });
     await page.getByRole("button", { name: "设置", exact: true }).click();
+    await page.getByLabel("界面字体", { exact: true }).selectOption("Arial");
+    await expect(page.getByLabel("界面字体", { exact: true })).toBeEnabled();
+    assert.equal((await invoke("get_snapshot")).appearance.fontFamily, "Arial");
     await page.getByLabel("外观模式", { exact: true }).selectOption("dark");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.getByLabel("界面语言", { exact: true }).selectOption("en");
@@ -503,6 +500,10 @@ try {
         }
       })
       .toBe(0);
+    assert.equal((await invoke("get_snapshot")).appearance.fontFamily, "Arial");
+    report.checks.push(
+      "custom font survives theme/language changes and plugin re-entry",
+    );
     report.checks.push(
       "exit/re-entry restarts the helper and reacquires the library successfully",
     );

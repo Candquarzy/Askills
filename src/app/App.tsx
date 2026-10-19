@@ -40,7 +40,6 @@ import { ProjectSkillPicker } from "../features/projects/ProjectSkillPicker";
 import { SourcesView } from "../features/sources/SourcesView";
 import { Modal } from "../components/Modal";
 import { Markdown } from "../components/Markdown";
-import { FontNotice } from "../components/FontNotice";
 import { GitHubMark } from "../components/GitHubMark";
 import { AppearanceSettings } from "../features/settings/AppearanceSettings";
 import { LanguageSettings } from "../features/settings/LanguageSettings";
@@ -625,7 +624,6 @@ export default function App({
                     return reload();
                   }}
                 />
-                <FontNotice />
               </>
             )}
           </main>

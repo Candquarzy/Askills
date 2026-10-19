@@ -237,7 +237,7 @@ source/ 包含完整的 React、Rust、锁文件、测试和构建脚本，来�
 
 ## 许可证
 
-应用源码采用 MIT，见 LICENSE。MiSans 采用原始字体许可，见 payload/licenses/MiSans.LICENSE.txt。来源下载不会执行 skill 脚本，项目写入需要用户选择目录和确认。
+应用源码采用 MIT，见 LICENSE。界面使用本机字体，不内置字体文件；图标文字相关的 MiSans 原始许可见 payload/licenses/MiSans.LICENSE.txt。来源下载不会执行 skill 脚本，项目写入需要用户选择目录和确认。
 `,
 );
 console.log(`Prepared center submission: ${output}`);

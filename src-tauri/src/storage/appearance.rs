@@ -17,6 +17,7 @@ pub enum ThemeMode {
 pub struct Appearance {
     pub mode: ThemeMode,
     pub accent_color: String,
+    pub font_family: String,
 }
 
 impl Default for Appearance {
@@ -24,12 +25,20 @@ impl Default for Appearance {
         Self {
             mode: ThemeMode::System,
             accent_color: "#005fb8".into(),
+            font_family: crate::platform::fonts::DEFAULT_FONT_FAMILY.into(),
         }
     }
 }
 
 impl Appearance {
     fn validate(mut self) -> Result<Self> {
+        if !crate::platform::fonts::valid_family(&self.font_family) {
+            return Err(AppError::new(
+                "InvalidFontFamily",
+                "字体名称不能为空、超过 128 个字符或包含控制字符",
+            ));
+        }
+        self.font_family = self.font_family.trim().into();
         if self.accent_color.len() != 7
             || !self.accent_color.starts_with('#')
             || !self.accent_color[1..]
@@ -76,6 +85,52 @@ mod tests {
     use super::*;
 
     #[test]
+    fn old_preferences_add_default_font_without_resetting_theme() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open(&root.path().join("app")).unwrap();
+        store
+            .conn
+            .execute(
+                "INSERT INTO app_preferences(key,value) VALUES('appearance',?1)",
+                [r##"{"mode":"dark","accentColor":"#fd81ac"}"##],
+            )
+            .unwrap();
+        let saved = store.appearance().unwrap();
+        assert_eq!(saved.mode, ThemeMode::Dark);
+        assert_eq!(saved.accent_color, "#fd81ac");
+        assert_eq!(saved.font_family, "Microsoft YaHei");
+    }
+
+    #[test]
+    fn invalid_font_names_do_not_overwrite_saved_preferences() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open(&root.path().join("app")).unwrap();
+        let saved = store
+            .set_appearance(Appearance {
+                font_family: "  宋体  ".into(),
+                ..Appearance::default()
+            })
+            .unwrap();
+        assert_eq!(saved.font_family, "宋体");
+        for font in [
+            "".into(),
+            " ".into(),
+            "Arial\n".into(),
+            "A\0B".into(),
+            "a".repeat(129),
+        ] {
+            let error = store
+                .set_appearance(Appearance {
+                    font_family: font,
+                    ..saved.clone()
+                })
+                .unwrap_err();
+            assert_eq!(error.code, "InvalidFontFamily");
+            assert_eq!(store.appearance().unwrap(), saved);
+        }
+    }
+
+    #[test]
     fn defaults_and_custom_appearance_survive_reopen_without_affecting_history() {
         let root = tempfile::tempdir().unwrap();
         let data = root.path().join("app");
@@ -85,6 +140,7 @@ mod tests {
         let expected = Appearance {
             mode: ThemeMode::Dark,
             accent_color: "#aabbcc".into(),
+            font_family: "SimSun".into(),
         };
         assert_eq!(
             store
@@ -114,6 +170,7 @@ mod tests {
             .set_appearance(Appearance {
                 mode: ThemeMode::Light,
                 accent_color: "#123456".into(),
+                ..Appearance::default()
             })
             .unwrap();
         for color in [

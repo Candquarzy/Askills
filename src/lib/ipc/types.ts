@@ -1,6 +1,7 @@
 export type Appearance = {
   mode: "system" | "light" | "dark";
   accentColor: string;
+  fontFamily: string;
 };
 export type Source = {
   kind: string;

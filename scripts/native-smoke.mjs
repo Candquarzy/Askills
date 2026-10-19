@@ -1,5 +1,6 @@
 // Windows WebView2 smoke against the built debug executable. No IPC mocks.
 import assert from "node:assert/strict";
+import { checkSystemFonts } from "./system-font-smoke.mjs";
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
 import {
@@ -239,33 +240,9 @@ try {
       ({ command, args }) => window.__TAURI_INTERNALS__.invoke(command, args),
       { command, args },
     );
-  await page.evaluate(() =>
-    document.fonts.load('400 14px "MiSans"', "skills 库 ABC 012"),
-  );
-  assert(
-    await page.evaluate(() =>
-      Array.from(document.fonts).some(
-        (font) => font.family === "MiSans" && font.status === "loaded",
-      ),
-    ),
-  );
-  const fontResources = await page.evaluate(() =>
-    performance
-      .getEntriesByType("resource")
-      .filter(
-        (entry) =>
-          entry.name.includes("MiSansVF") && entry.name.includes(".ttf"),
-      )
-      .map((entry) => entry.name),
-  );
-  assert(fontResources.length > 0);
-  assert(
-    fontResources.every(
-      (url) => new URL(url).origin === new URL(page.url()).origin,
-    ),
-  );
+  report.fonts = await checkSystemFonts(page, invoke);
   report.checks.push(
-    "bundled MiSans loaded from the application origin without a font CDN",
+    "installed fonts enumerate through native IPC; Microsoft YaHei renders locally without font assets",
   );
   const snapshot = await invoke("get_snapshot");
   const appInfo = await invoke("get_app_info");
@@ -380,7 +357,13 @@ try {
   await page.getByLabel("自定义颜色", { exact: true }).fill("#b060d0");
   await page.getByRole("button", { name: "应用自定义颜色" }).click();
   await expect(page.getByLabel("自定义颜色", { exact: true })).toBeEnabled();
-  const savedAppearance = { mode: "dark", accentColor: "#b060d0" };
+  await page.getByLabel("界面字体", { exact: true }).selectOption("Arial");
+  await expect(page.getByLabel("界面字体", { exact: true })).toBeEnabled();
+  const savedAppearance = {
+    mode: "dark",
+    accentColor: "#b060d0",
+    fontFamily: "Arial",
+  };
   assert.deepEqual((await invoke("get_snapshot")).appearance, savedAppearance);
   await page.reload();
   await page
@@ -401,8 +384,11 @@ try {
       ),
     "#b060d0",
   );
+  await expect(page.getByLabel("界面字体", { exact: true })).toHaveValue(
+    "Arial",
+  );
   report.checks.push(
-    "appearance saved through native IPC/SQLite; dark mode and custom accent survive reload",
+    "font and appearance saved through native IPC/SQLite; dark mode and custom accent survive reload",
   );
   await page.screenshot({
     path: path.join(output, "appearance-dark.png"),

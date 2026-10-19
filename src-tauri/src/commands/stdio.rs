@@ -71,6 +71,10 @@ async fn dispatch(runtime: Arc<Runtime>, request: Request) -> Result<Value> {
             }))
         }
         "get_snapshot" => invoke!(get_snapshot()),
+        "list_system_fonts" => {
+            arguments!();
+            encode(super::list_system_fonts().await?)
+        }
         "set_locale" => invoke!(set_locale(locale: Locale)),
         "set_appearance" => invoke!(set_appearance(appearance: Appearance)),
         "remember_repository" => invoke!(remember_repository(repository: String)),
@@ -209,7 +213,7 @@ fn serve<R: BufRead, W: Write + Send + 'static>(
             // Reads and cancellation are serviced while the mutation worker runs.
             if matches!(
                 request.command.as_str(),
-                "get_download_progress" | "cancel_operation" | "get_app_info"
+                "get_download_progress" | "cancel_operation" | "get_app_info" | "list_system_fonts"
             ) {
                 let result = tauri::async_runtime::block_on(dispatch(runtime.clone(), request));
                 write_response(&output, response(id, result))?;

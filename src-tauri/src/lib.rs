@@ -75,6 +75,7 @@ pub fn run() {
             commands::desktop::get_snapshot,
             commands::desktop::set_locale,
             commands::desktop::set_appearance,
+            commands::desktop::list_system_fonts,
             commands::desktop::remember_repository,
             commands::desktop::set_skill_display_name,
             commands::desktop::set_project_display_name,

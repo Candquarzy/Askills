@@ -9,6 +9,34 @@ fn request(command: &str, args: Value) -> Request {
     }
 }
 
+#[cfg(windows)]
+#[test]
+fn installed_fonts_are_names_only_and_reject_extra_arguments() {
+    let root = tempfile::tempdir().unwrap();
+    let runtime = Runtime::new(root.path().join("data"));
+    let response = tauri::async_runtime::block_on(dispatch(
+        runtime.clone(),
+        request("list_system_fonts", json!({})),
+    ))
+    .unwrap();
+    let names: Vec<String> = serde_json::from_value(response).unwrap();
+    assert!(!names.is_empty());
+    assert!(
+        names
+            .iter()
+            .all(|name| crate::platform::fonts::valid_family(name) && !name.starts_with('@'))
+    );
+    let unique: std::collections::BTreeSet<_> =
+        names.iter().map(|name| name.to_lowercase()).collect();
+    assert_eq!(unique.len(), names.len());
+    let error = tauri::async_runtime::block_on(dispatch(
+        runtime,
+        request("list_system_fonts", json!({"path":"arbitrary"})),
+    ))
+    .unwrap_err();
+    assert_eq!(error.code, "InvalidRequest");
+}
+
 #[test]
 fn envelopes_require_bounded_ids_and_object_arguments() {
     for value in [

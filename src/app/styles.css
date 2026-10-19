@@ -1119,25 +1119,6 @@ code {
   margin: 24px 0;
 }
 
-.font-notice {
-  max-width: 800px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-.font-notice summary {
-  width: fit-content;
-  cursor: pointer;
-}
-
-.font-license {
-  font-family: var(--app-font);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 12px;
-  line-height: 1.8;
-  max-height: 260px;
-  overflow: auto;
-}
 .source-selection-bar > span {
   margin-right: auto;
 }

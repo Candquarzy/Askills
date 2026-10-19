@@ -25,7 +25,9 @@ type FixtureOptions = {
   downloadFailures?: Record<string, number>;
   repositoryHistory?: string[];
   resolveFailure?: boolean;
-  appearance?: Appearance;
+  appearance?: Partial<Appearance>;
+  fontListFailure?: boolean;
+  systemFonts?: string[];
   appearanceSaveFailure?: boolean;
   locale?: Locale;
   localeSaveFailure?: boolean;
@@ -59,6 +61,7 @@ declare global {
       committedImports: number;
       committedSkillPaths: string[];
       completedCancellations: number;
+      fontListFailure: boolean;
     };
     __markdownExecuted?: boolean;
   }
@@ -122,10 +125,14 @@ export async function installBackendFixture(
 ) {
   await page.addInitScript(
     ({ options, rust, security, revisions }) => {
-      let appearance: Appearance = JSON.parse(
-        localStorage.getItem("askills-test-appearance") || "null",
-      ) ||
-        options.appearance || { mode: "system", accentColor: "#005fb8" };
+      let appearance: Appearance = {
+        mode: "system",
+        accentColor: "#005fb8",
+        fontFamily: "Microsoft YaHei",
+        ...(JSON.parse(
+          localStorage.getItem("askills-test-appearance") || "null",
+        ) || options.appearance),
+      };
       let failedAppearance = false;
       let locale: Locale =
         (localStorage.getItem("askills-test-locale") as Locale) ||
@@ -176,6 +183,7 @@ export async function installBackendFixture(
         committedImports: 0,
         committedSkillPaths: [] as string[],
         completedCancellations: 0,
+        fontListFailure: options.fontListFailure ?? false,
       };
       window.__ASKILLS_TEST__ = state;
       window.isTauri = true;
@@ -274,7 +282,9 @@ export async function installBackendFixture(
           state.invocations.push({ command, args });
           const isCancellation = command === "cancel_operation";
           const bypassBusy =
-            isCancellation || command === "get_download_progress";
+            isCancellation ||
+            command === "get_download_progress" ||
+            command === "list_system_fonts";
           // Mirror the native global busy gate so accidental Promise.all IPC fails.
           if (!bypassBusy) {
             if (operationInFlight)
@@ -322,6 +332,17 @@ export async function installBackendFixture(
                 locale = args.locale;
                 localStorage.setItem("askills-test-locale", locale);
                 return locale;
+              }
+              case "list_system_fonts": {
+                if (state.fontListFailure) {
+                  throw error(
+                    "FontEnumerationFailed",
+                    "无法读取本机字体，请重试",
+                  );
+                }
+                return (
+                  options.systemFonts ?? ["Arial", "Microsoft YaHei", "SimSun"]
+                );
               }
               case "set_appearance": {
                 if (options.appearanceSaveFailure && !failedAppearance) {

@@ -6,7 +6,7 @@
 
 **[下载已发布的 Windows 免安装版（V1.0.0-fix）](https://github.com/Candquarzy/Askills/releases/download/v1.0.0-fix/Askills_1.0.0-fix_windows_x64.exe)** · [版本说明](https://github.com/Candquarzy/Askills/releases/tag/v1.0.0-fix)
 
-下载 EXE 后双击即可，界面、MiSans 和图标均内嵌。需要系统已安装 Microsoft Edge WebView2；Windows 设置和项目记录保存在 `%LOCALAPPDATA%\asklils`，全新使用时的默认 skills 库为 `%LOCALAPPDATA%\asklils\library`，可以在应用设置中更改库位置。
+下载 EXE 后双击即可，界面和图标均内嵌。需要系统已安装 Microsoft Edge WebView2；Windows 设置和项目记录保存在 `%LOCALAPPDATA%\asklils`，全新使用时的默认 skills 库为 `%LOCALAPPDATA%\asklils\library`，可以在应用设置中更改库位置。
 
 从 1.0.0 升级时，先退出旧版。首次启动会继承旧目录中的设置、项目、历史和偏好，旧目录保留；已有 skills 库（包括自定义位置）保持原路径，确保项目链接继续有效。若要把已有库也移入新目录，使用“设置 → 本地 skills 库”的迁移功能。请勿手动删除仍被使用的旧库。
 
@@ -36,7 +36,7 @@
 
 应用不会执行 skill 中的脚本。支持简体中文与英文界面，在“设置 → 语言与阅读”切换，重启后保留；skill 内容保留原文。
 
-界面统一使用随应用内置的 MiSans，离线可用；字体原版、许可和来源记录见 [字体说明](third-party/fonts/README.md)。
+桌面版和 ZTools 插件统一使用本机字体，默认微软雅黑，不再打包完整字体文件。在“设置 → 个性化 → 界面字体”中可搜索、预览和选择已安装字体，选择自动保存；安装新字体后可刷新列表，已卸载字体会自动回退。
 
 界面采用 WinUI 风格。在“设置 → 个性化”中可切换浅色/深色/跟随系统，选择 6 个预设主题色或自定义颜色，设置重启后保留。
 

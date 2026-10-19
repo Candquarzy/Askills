@@ -309,6 +309,11 @@ pub async fn set_appearance(state: Arc<Runtime>, appearance: Appearance) -> Resu
     })
     .await
 }
+pub async fn list_system_fonts() -> Result<Vec<String>> {
+    tauri::async_runtime::spawn_blocking(crate::platform::fonts::list_system_fonts)
+        .await
+        .map_err(|error| AppError::new("FontEnumerationFailed", error.to_string()))?
+}
 pub async fn remember_repository(state: Arc<Runtime>, repository: String) -> Result<Vec<String>> {
     work(state.clone(), move |w, _| {
         w.store.remember_repository(&repository)

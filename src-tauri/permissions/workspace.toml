@@ -4,6 +4,7 @@ description = "Manage skills through backend-validated selections, IDs and plans
 commands.allow = [
   "set_locale",
   "set_appearance",
+  "list_system_fonts",
   "remember_repository",
   "get_download_progress",
   "resolve_git", "get_git_version",

@@ -56,6 +56,7 @@ mod tests {
         let appearance = Appearance {
             mode: ThemeMode::Dark,
             accent_color: "#123456".into(),
+            ..Appearance::default()
         };
         store.set_appearance(appearance.clone()).unwrap();
         store.remember_repository("owner/repo").unwrap();
