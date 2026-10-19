@@ -41,8 +41,7 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            let data = commands::data_directory(app.handle())?;
-            let runtime = commands::Runtime::new(data);
+            let runtime = commands::initialize_runtime(app.handle())?;
             runtime.apply_initial_preferences(app.handle());
             app.manage(runtime);
             // Always start at the configured logical size. Apply this before

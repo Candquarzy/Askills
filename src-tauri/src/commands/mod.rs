@@ -18,6 +18,9 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
+mod bootstrap;
+pub use bootstrap::initialize_runtime;
+
 #[cfg(test)]
 mod tests;
 
@@ -168,8 +171,11 @@ impl Runtime {
         }
     }
     pub fn new(path: PathBuf) -> Arc<Self> {
+        Self::from_workspace(Workspace::open(path))
+    }
+    fn from_workspace(workspace: Result<Workspace>) -> Arc<Self> {
         Arc::new(Self {
-            workspace: Mutex::new(Workspace::open(path)),
+            workspace: Mutex::new(workspace),
             busy: AtomicBool::new(false),
             cancel: AtomicBool::new(false),
             download_progress: Mutex::new(None),
@@ -761,15 +767,4 @@ pub async fn get_revision_diff(
         })
     })
     .await
-}
-
-pub fn data_directory(app: &AppHandle) -> Result<PathBuf> {
-    // Development smoke tests use an isolated directory, never the real personal library.
-    #[cfg(debug_assertions)]
-    if let Some(path) = std::env::var_os("ASKILLS_TEST_DATA_DIR") {
-        return Ok(PathBuf::from(path));
-    }
-    app.path()
-        .app_local_data_dir()
-        .map_err(|e| AppError::new("DataDirectory", e.to_string()))
 }

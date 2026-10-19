@@ -55,6 +55,8 @@ const summaries: Record<string, string> = {
   InvalidAccentColor: "Enter a six-digit color in #RRGGBB format.",
   LibraryBusy:
     "Another Askills instance is using this data directory or library.",
+  DataDirectoryConflict:
+    "The new application data directory conflicts with existing content. Nothing was overwritten; inspect it before retrying.",
   LibraryChanged:
     "The library directory was replaced externally. Restart and inspect it.",
   LibraryNotEmpty:

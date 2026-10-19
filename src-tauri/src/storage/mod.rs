@@ -15,11 +15,13 @@ use std::sync::atomic::AtomicBool;
 use uuid::Uuid;
 
 mod appearance;
+mod legacy;
 mod locale;
 mod management;
 mod migration;
 mod repository_history;
 pub use appearance::{Appearance, ThemeMode};
+pub use legacy::inherit_legacy_data;
 pub use locale::Locale;
 pub use migration::{LibraryMigrationPlan, LibraryMigrationResult};
 
