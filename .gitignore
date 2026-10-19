@@ -29,5 +29,6 @@ dist-ssr
 !.env.example
 .askills/
 coverage/
+artifacts/
 playwright-report/
 test-results/

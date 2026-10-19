@@ -2,16 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main, "chore/**", "feat/**", "fix/**"]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   frontend:
@@ -37,8 +32,9 @@ jobs:
           path: test-results/
 
   desktop:
-    name: Windows desktop build
+    name: Windows portable build
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -56,4 +52,16 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
-      - run: pnpm tauri build --debug --no-bundle -- --locked
+      - name: Build release executable
+        run: pnpm tauri build --ci --no-bundle -- --locked
+      - name: Collect standalone EXE and checksums
+        shell: pwsh
+        run: ./scripts/collect-windows-packages.ps1
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Askills-windows-x64-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/windows-x64/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
