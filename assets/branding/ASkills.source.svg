@@ -5,11 +5,11 @@
 <style type="text/css">
 	.st0{fill:#00FFFF;}
 	.st1{font-family:'MiSans-Semibold';}
-	.st2{font-size:1096.3583px;}
-	.st3{font-size:110.3268px;}
+	.st2{font-size:811.2623px;}
+	.st3{font-size:178.594px;}
 </style>
-<path class="st0" d="M949.67,1037H144.33C92.23,1037,50,994.77,50,942.67V137.33C50,85.23,92.23,43,144.33,43h805.33
-	c52.1,0,94.33,42.23,94.33,94.33v805.33C1044,994.77,1001.77,1037,949.67,1037z"/>
-<text transform="matrix(0.9862 0.1654 -0.1654 0.9862 57.4596 875.3636)" class="st1 st2">S</text>
-<text transform="matrix(1 0 0 1 735.5918 969.8887)" class="st1 st3">kills</text>
+<path class="st0" d="M844.83,1037H249.17C139.17,1037,50,947.83,50,837.83V242.17C50,132.17,139.17,43,249.17,43h595.67
+	c110,0,199.17,89.17,199.17,199.17v595.67C1044,947.83,954.83,1037,844.83,1037z"/>
+<text transform="matrix(0.9862 0.1654 -0.1654 0.9862 104.6799 796.194)" class="st1 st2">S</text>
+<text transform="matrix(1 0 0 1 623.7832 864.6133)" class="st1 st3">kills</text>
 </svg>

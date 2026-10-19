@@ -1,6 +1,7 @@
 import { useI18n } from "./i18n";
 import { translate } from "./i18n/messages";
 import { RELEASE_LABEL, REPOSITORY_URL } from "./metadata";
+import appLogo from "../assets/askills.svg";
 import { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
@@ -434,7 +435,7 @@ export default function App() {
       <div className="app-shell">
         <aside className="sidebar">
           <div className="brand">
-            <img className="brand-mark" src="/askills.svg" alt="" />
+            <img className="brand-mark" src={appLogo} alt="" />
             <div>
               Askills
               <small>{t("让技能各就其位")}</small>

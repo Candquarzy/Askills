@@ -112,6 +112,62 @@ async function nativeWindowAction(action) {
     maximize: "[AskillsWindowSmoke]::ShowWindowAsync($handle,3) | Out-Null",
     close:
       "[AskillsWindowSmoke]::PostMessage($handle,0x0010,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null",
+    icons: String.raw`
+      Add-Type -AssemblyName System.Drawing
+      function Measure-BrandIcon([System.Drawing.Icon]$icon, [string]$name) {
+        $actual = $icon.ToBitmap()
+        # Use the Windows decoder: .NET Framework's Icon(file).ToBitmap()
+        # misreads PNG-compressed ICO frames under Windows PowerShell 5.
+        $expectedHandle = [AskillsWindowSmoke]::LoadImage([IntPtr]::Zero,$env:ASKILLS_NATIVE_EXPECTED_ICON,1,$actual.Width,$actual.Height,0x10)
+        if ($expectedHandle -eq [IntPtr]::Zero) { $actual.Dispose(); throw 'Cannot decode the expected application icon' }
+        $expectedIcon = [System.Drawing.Icon]::FromHandle($expectedHandle)
+        $expected = $expectedIcon.ToBitmap()
+        try {
+          $actual.Save((Join-Path $env:ASKILLS_NATIVE_ICON_OUTPUT ($name + '.png')),[System.Drawing.Imaging.ImageFormat]::Png)
+          $expected.Save((Join-Path $env:ASKILLS_NATIVE_ICON_OUTPUT ($name + '-expected.png')),[System.Drawing.Imaging.ImageFormat]::Png)
+          if ($actual.Width -ne $expected.Width -or $actual.Height -ne $expected.Height) {
+            throw ('{0} icon size differs: actual {1}x{2}, expected {3}x{4}' -f $name,$actual.Width,$actual.Height,$expected.Width,$expected.Height)
+          }
+          $different = 0
+          $compared = 0
+          for ($y = 0; $y -lt $actual.Height; $y++) {
+            for ($x = 0; $x -lt $actual.Width; $x++) {
+              $wanted = $expected.GetPixel($x,$y)
+              $pixel = $actual.GetPixel($x,$y)
+              # Ignore partially transparent boundary pixels, whose RGB can be
+              # rounded during Windows alpha premultiplication.
+              if ($wanted.A -eq 255) {
+                $compared++
+                if ($pixel.ToArgb() -ne $wanted.ToArgb()) { $different++ }
+              } elseif ($wanted.A -eq 0) {
+                $compared++
+                if ($pixel.A -ne 0) { $different++ }
+              }
+            }
+          }
+          if ($compared -lt ($actual.Width * $actual.Height / 2)) {
+            throw ('{0}: only {1} comparable pixels in {2}x{3} icon' -f $name,$compared,$actual.Width,$actual.Height)
+          }
+          if ($different -ne 0) { throw ('{0} differs from the generated application icon in {1} pixels' -f $name,$different) }
+          [PSCustomObject]@{ name=$name; width=$actual.Width; height=$actual.Height; comparedPixels=$compared; differentPixels=$different }
+        } finally {
+          $actual.Dispose(); $expected.Dispose(); $expectedIcon.Dispose()
+          [AskillsWindowSmoke]::DestroyIcon($expectedHandle) | Out-Null
+        }
+      }
+      $iconChecks = @()
+      $fileIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($nativeProcess.Path)
+      try { $iconChecks += Measure-BrandIcon $fileIcon 'executable-icon' } finally { $fileIcon.Dispose() }
+      foreach ($kind in @(0,1)) {
+        $iconHandle = [AskillsWindowSmoke]::GetWindowIcon($handle,$kind)
+        if ($iconHandle -eq [IntPtr]::Zero) { throw 'The test window has no icon' }
+        $borrowedIcon = [System.Drawing.Icon]::FromHandle($iconHandle)
+        $ownedIcon = $borrowedIcon.Clone()
+        try { $iconChecks += Measure-BrandIcon $ownedIcon ('window-icon-' + $kind) }
+        finally { $ownedIcon.Dispose(); $borrowedIcon.Dispose() }
+      }
+      ConvertTo-Json -InputObject $iconChecks -Compress
+    `,
   };
   assert(Object.hasOwn(actions, action));
   assert(Number.isSafeInteger(child.pid));
@@ -130,6 +186,17 @@ public static class AskillsWindowSmoke {
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int height, uint flags);
   [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h, int command);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int width, int height, uint flags);
+  [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr icon);
+  [DllImport("user32.dll", EntryPoint="GetClassLongPtrW")] private static extern IntPtr GetClassLongPtr(IntPtr h, int index);
+  [DllImport("user32.dll", EntryPoint="GetClassLongW")] private static extern uint GetClassLong(IntPtr h, int index);
+  public static IntPtr GetWindowIcon(IntPtr h, int kind) {
+    var icon = SendMessage(h,0x007F,new IntPtr(kind),IntPtr.Zero);
+    if (icon != IntPtr.Zero) return icon;
+    var index = kind == 1 ? -14 : -34;
+    return IntPtr.Size == 8 ? GetClassLongPtr(h,index) : new IntPtr(GetClassLong(h,index));
+  }
 }
 '@
     $nativeProcess = Get-Process -Id ${child.pid} -ErrorAction Stop
@@ -138,7 +205,18 @@ public static class AskillsWindowSmoke {
     ${actions[action]}
   `,
     ],
-    { windowsHide: true, timeout: 15000 },
+    {
+      windowsHide: true,
+      timeout: 15000,
+      env: {
+        ...process.env,
+        ASKILLS_NATIVE_EXPECTED_ICON: path.join(
+          root,
+          "src-tauri/icons/icon.ico",
+        ),
+        ASKILLS_NATIVE_ICON_OUTPUT: output,
+      },
+    },
   );
   return stdout.trim();
 }
@@ -146,6 +224,13 @@ try {
   await connectWindow();
   await expectStartupSize();
   assert.equal(await nativeWindowAction("title"), "Askills · skills 管理");
+  const nativeIcons = JSON.parse(await nativeWindowAction("icons"));
+  assert.equal(nativeIcons.length, 3);
+  assert(nativeIcons.every((icon) => icon.differentPixels === 0));
+  report.icons = nativeIcons;
+  report.checks.push(
+    "executable and live window/taskbar icons match generated branding",
+  );
   await expect(
     page.getByRole("button", { name: "导入本地 skill" }),
   ).toBeEnabled();

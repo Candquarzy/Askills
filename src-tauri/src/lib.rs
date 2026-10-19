@@ -49,6 +49,11 @@ pub fn run() {
             // showing the window so an old maximized/restore rectangle cannot
             // briefly appear or influence the next launch.
             if let Some(window) = app.get_webview_window("main") {
+                if let Some(icon) = app.default_window_icon() {
+                    window.set_icon(icon.clone())?;
+                }
+                #[cfg(windows)]
+                platform::window::set_taskbar_icon(&window)?;
                 let config = app
                     .config()
                     .app

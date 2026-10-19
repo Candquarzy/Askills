@@ -2,5 +2,6 @@
 *.png binary
 *.ico binary
 *.icns binary
+assets/branding/ASkills.source.svg -text -whitespace
 .agents/skills/** -text -whitespace
 third-party/skills/*.LICENSE -text -whitespace
