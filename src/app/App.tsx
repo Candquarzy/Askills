@@ -456,7 +456,9 @@ export default function App() {
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <span className="version">{RELEASE_LABEL}</span>
+            <span className="version">
+              {t("当前版本: {version}", { version: RELEASE_LABEL })}
+            </span>
             <a
               href={REPOSITORY_URL}
               target="_blank"

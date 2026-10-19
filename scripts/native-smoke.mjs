@@ -186,7 +186,7 @@ try {
   const appInfo = await invoke("get_app_info");
   assert.equal(appInfo.version, packageManifest.version);
   await expect(page.locator(".sidebar-bottom .version")).toHaveText(
-    `REV${packageManifest.version}`,
+    `当前版本: V${packageManifest.version}`,
   );
   await expect(page.locator(".sidebar-bottom a")).toHaveAttribute(
     "href",

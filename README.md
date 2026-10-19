@@ -2,7 +2,7 @@
 
 使用 **Rust + Tauri 2** 构建的中英文 Agent Skills 桌面管理器。
 
-当前版本为 **REV1.0.0**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。Windows 为当前验证平台；macOS/Linux 与安装包发布仍在后续计划中。
+当前版本为 **V1.0.0**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。Windows 为当前验证平台；macOS/Linux 与安装包发布仍在后续计划中。
 
 ## 可以做什么
 

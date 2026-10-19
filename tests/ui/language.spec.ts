@@ -24,7 +24,7 @@ test("中英文切换即时生效且重载保留，不覆盖主题与仓库历�
   await expect(page.getByRole("heading", { name: /^skills 库/ })).toBeVisible();
   await expect(page).toHaveTitle("Askills · skills 管理");
   const footer = page.locator(".sidebar-bottom");
-  await expect(footer.locator(".version")).toHaveText("REV1.0.0");
+  await expect(footer.locator(".version")).toHaveText("当前版本: V1.0.0");
   const repository = footer.getByRole("link", { name: "GitHub 仓库" });
   await expect(repository).toHaveAttribute(
     "href",
@@ -41,6 +41,9 @@ test("中英文切换即时生效且重载保留，不覆盖主题与仓库历�
   ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page).toHaveTitle("Askills · Skill Manager");
+  await expect(footer.locator(".version")).toHaveText(
+    "Current version: V1.0.0",
+  );
   await expect(
     footer.getByRole("link", { name: "GitHub repository" }),
   ).toBeVisible();
