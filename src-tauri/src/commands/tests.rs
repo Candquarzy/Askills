@@ -215,7 +215,12 @@ fn library_migration_requires_a_library_grant_and_consumes_it_only_after_success
     );
     fs::remove_file(target.join("keep.txt")).unwrap();
     let result = workspace.migrate_selection(&grant.id, &cancel).unwrap();
-    assert_eq!(PathBuf::from(result.library_root), target);
+    // Windows runners can use an 8.3 alias in TEMP while the migration returns
+    // the expanded path. Compare directory identity after canonicalization.
+    assert_eq!(
+        fs::canonicalize(result.library_root).unwrap(),
+        fs::canonicalize(target).unwrap()
+    );
     assert!(!workspace.selections.contains_key(&grant.id));
     assert!(workspace.imports.is_empty());
     assert_eq!(
