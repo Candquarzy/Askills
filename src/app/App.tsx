@@ -1,5 +1,6 @@
 import { useI18n } from "./i18n";
 import { translate } from "./i18n/messages";
+import { RELEASE_LABEL, REPOSITORY_URL } from "./metadata";
 import { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
@@ -38,6 +39,7 @@ import { SourcesView } from "../features/sources/SourcesView";
 import { Modal } from "../components/Modal";
 import { Markdown } from "../components/Markdown";
 import { FontNotice } from "../components/FontNotice";
+import { GitHubMark } from "../components/GitHubMark";
 import { AppearanceSettings } from "../features/settings/AppearanceSettings";
 import { LanguageSettings } from "../features/settings/LanguageSettings";
 import { LibrarySettings } from "../features/settings/LibrarySettings";
@@ -454,10 +456,22 @@ export default function App() {
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <span className="local-dot" />
-            {t("本地优先")}
-            <small>{t("Skills 属于你自己的目录")}</small>
-            <span className="version">{t("0.1 · 开发预览")}</span>
+            <span className="version">{RELEASE_LABEL}</span>
+            <a
+              href={REPOSITORY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => {
+                if (!isTauri()) return;
+                event.preventDefault();
+                void call("open_repository").catch((error) =>
+                  setError(errorMessage(error, locale)),
+                );
+              }}
+            >
+              <GitHubMark />
+              {t("GitHub 仓库")}
+            </a>
           </div>
         </aside>
         <div className="main-shell">

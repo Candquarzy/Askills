@@ -10,6 +10,7 @@ commands.allow = [
   "set_skill_display_name",
   "set_project_display_name", "remove_library_skills", "remove_projects",
   "get_app_info",
+  "open_repository",
   "get_snapshot", "pick_directory", "prepare_import", "finish_import",
   "discard_import", "register_project", "discover_projects", "scan_project",
   "get_document", "get_revisions", "preview_deployment", "apply_deployment",

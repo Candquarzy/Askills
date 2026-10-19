@@ -284,6 +284,8 @@ export async function installBackendFixture(
           try {
             await new Promise((resolve) => setTimeout(resolve, 5));
             switch (command) {
+              case "open_repository":
+                return null;
               case "get_snapshot": {
                 snapshotCount++;
                 if (snapshotCount >= 3 && options.laterRefreshDelayMs)

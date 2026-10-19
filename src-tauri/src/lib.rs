@@ -6,6 +6,7 @@ pub mod services;
 pub mod sources;
 pub mod storage;
 use tauri::Manager;
+use tauri_plugin_opener::OpenerExt;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,10 +24,22 @@ fn get_app_info() -> AppInfo {
     }
 }
 
+#[tauri::command]
+fn open_repository(app: tauri::AppHandle) -> domain::Result<()> {
+    app.opener()
+        .open_url(env!("CARGO_PKG_REPOSITORY"), None::<&str>)
+        .map_err(|error| domain::AppError::new("OpenRepositoryFailed", error.to_string()))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         .setup(|app| {
             let data = commands::data_directory(app.handle())?;
             let runtime = commands::Runtime::new(data);
@@ -53,6 +66,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_info,
+            open_repository,
             commands::get_snapshot,
             commands::set_locale,
             commands::set_appearance,

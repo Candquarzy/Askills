@@ -11,6 +11,7 @@ const summaries: Record<string, string> = {
   PreviewLimit: "Finish or close other import previews first.",
   Busy: "Another operation is running. Wait for it or cancel it before retrying.",
   StateUnavailable: "Application state is unavailable. Restart Askills.",
+  OpenRepositoryFailed: "Could not open the GitHub repository in your browser.",
   PreviewExpired: "The import preview expired. Preview the skill again.",
   CatalogExpired: "The source list expired. Find skills again.",
   Cancelled: "Operation cancelled.",

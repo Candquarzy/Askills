@@ -92,6 +92,9 @@ async function connectWindow() {
 const configuration = JSON.parse(
   await readFile(path.join(root, "src-tauri/tauri.conf.json"), "utf8"),
 ).app.windows[0];
+const packageManifest = JSON.parse(
+  await readFile(path.join(root, "package.json"), "utf8"),
+);
 async function expectStartupSize() {
   await expect
     .poll(() => page.evaluate(() => window.innerWidth))
@@ -180,6 +183,18 @@ try {
     "bundled MiSans loaded from the application origin without a font CDN",
   );
   const snapshot = await invoke("get_snapshot");
+  const appInfo = await invoke("get_app_info");
+  assert.equal(appInfo.version, packageManifest.version);
+  await expect(page.locator(".sidebar-bottom .version")).toHaveText(
+    `REV${packageManifest.version}`,
+  );
+  await expect(page.locator(".sidebar-bottom a")).toHaveAttribute(
+    "href",
+    "https://github.com/Candquarzy/Askills",
+  );
+  report.checks.push(
+    "native application and sidebar release versions match package metadata",
+  );
   assert.equal(snapshot.skills.length, 0);
   assert.equal(snapshot.projects.length, 0);
   assert.deepEqual(snapshot.repositoryHistory, []);
@@ -201,6 +216,12 @@ try {
   assert.equal(denied?.code, "SelectionExpired");
   await assert.rejects(
     invoke("plugin:fs|read_text_file", { path: "SKILL.md" }),
+  );
+  await assert.rejects(
+    invoke("plugin:opener|open_url", {
+      url: "https://example.invalid",
+      with: null,
+    }),
   );
   report.checks.push(
     "expired directory grant and ungranted fs plugin rejected",
