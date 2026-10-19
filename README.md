@@ -2,7 +2,7 @@
 
 使用 **Rust + Tauri 2** 构建的中英文 Agent Skills 桌面管理器 (纯AI构建, 由GPT6支持) 。
 
-当前项目版本为 **V1.0.2**（本地测试版，尚未发布），已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。提供 Windows x64 单文件免安装版和 ZTools 插件；macOS/Linux 尚未发布。
+当前项目版本为 **V1.0.2**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。提供 Windows x64 单文件免安装版和 ZTools 插件；macOS/Linux 尚未发布。1.0.2 暂未发布 GitHub Release，下方链接为已发布的桌面版。
 
 **[下载已发布的 Windows 免安装版（V1.0.0-fix）](https://github.com/Candquarzy/Askills/releases/download/v1.0.0-fix/Askills_1.0.0-fix_windows_x64.exe)** · [版本说明](https://github.com/Candquarzy/Askills/releases/tag/v1.0.0-fix)
 
@@ -14,7 +14,7 @@
 
 除了独立桌面版，也可以把 Askills 作为 **ZTools 插件**使用，目前支持 Windows x64。插件提供同一套 skills 库、项目、来源和设置，采用透明背景，并在选中卡片下方直接展开详情。
 
-**插件中心 1.0.1 已提交审核：[ZToolsCenter/ZTools-plugins #672](https://github.com/ZToolsCenter/ZTools-plugins/pull/672)。** 审核通过并上架后，可在 ZTools 插件中心搜索 `Askills` 安装；审核期间可按下列方式本地安装。
+**插件中心 1.0.2 通过 [ZToolsCenter/ZTools-plugins #672](https://github.com/ZToolsCenter/ZTools-plugins/pull/672) 提交审核。** 审核通过并上架后，可在 ZTools 插件中心搜索 `Askills` 安装；审核期间可按下列方式本地安装。
 
 本地安装步骤：
 

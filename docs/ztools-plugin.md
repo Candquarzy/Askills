@@ -1,8 +1,8 @@
 # ZTools 插件
 
-Askills 的 ZTools 插件复用桌面版的 React 界面与 Rust 业务逻辑，提供 skills 库、项目、来源和设置四个页面。目前支持 Windows x64，当前本地版本为 **1.0.2**（尚未推送或发布）。插件中心通过官方仓库 PR 审核后上架。
+Askills 的 ZTools 插件复用桌面版的 React 界面与 Rust 业务逻辑，提供 skills 库、项目、来源和设置四个页面。目前支持 Windows x64，当前版本为 **1.0.2**。插件中心通过官方仓库 PR 审核后上架。
 
-1.0.1 的审核提交为 **[ZToolsCenter/ZTools-plugins #672](https://github.com/ZToolsCenter/ZTools-plugins/pull/672)**，已补齐截图和自检说明并标为可审核。审核与上架状态以该 PR 和插件中心为准。
+1.0.2 的审核提交为 **[ZToolsCenter/ZTools-plugins #672](https://github.com/ZToolsCenter/ZTools-plugins/pull/672)**，沿用首次提交的 PR，补充本机字体选择和包体积优化。审核与上架状态以该 PR 和插件中心为准。
 
 ## 本地安装与使用
 
