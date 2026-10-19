@@ -434,7 +434,7 @@ export default function App() {
       <div className="app-shell">
         <aside className="sidebar">
           <div className="brand">
-            <span className="brand-mark">A</span>
+            <img className="brand-mark" src="/askills.svg" alt="" />
             <div>
               Askills
               <small>{t("让技能各就其位")}</small>
