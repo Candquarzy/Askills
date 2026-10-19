@@ -2,6 +2,7 @@ import { useI18n } from "./i18n";
 import { translate } from "./i18n/messages";
 import { RELEASE_LABEL, REPOSITORY_URL } from "./metadata";
 import appLogo from "../assets/askills.svg";
+import type { HostPage } from "../lib/host";
 import { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
@@ -12,9 +13,9 @@ import {
   ArrowRight,
 } from "lucide-react";
 import {
-  call,
+  useCall,
   errorMessage,
-  isTauri,
+  isDesktop,
   shortHash,
   sizeLabel,
 } from "../lib/ipc/client";
@@ -50,7 +51,7 @@ import { OperationToast } from "../components/OperationToast";
 import "./styles.css";
 import "./fonts.css";
 import "./theme.css";
-type Page = "library" | "projects" | "sources" | "settings";
+type Page = HostPage;
 type Dialog =
   | {
       type: "remove-items";
@@ -97,11 +98,16 @@ const initial: Snapshot = {
   appearance: DEFAULT_APPEARANCE,
   locale: "zh-CN",
 };
-export default function App() {
+export default function App({
+  initialPage = "library",
+}: {
+  initialPage?: Page;
+}) {
   const { t, locale, setLocale } = useI18n();
+  const call = useCall();
   const [snapshot, setSnapshot] = useState<Snapshot>(initial);
   useAppearance(snapshot.appearance);
-  const [page, setPage] = useState<Page>("library");
+  const [page, setPage] = useState<Page>(initialPage);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -118,7 +124,7 @@ export default function App() {
   const inFlight = useRef(false);
   const operationSequence = useRef(0);
   const cancelRequested = useRef(false);
-  const desktop = isTauri();
+  const desktop = isDesktop();
   const disabled = !!busy || !desktop || !ready;
   const run: RunOperation = async (label, work) => {
     if (inFlight.current) return;
@@ -153,10 +159,16 @@ export default function App() {
     return result;
   }
   useEffect(() => {
+    cancelRequested.current = false;
     if (!initialized.current && desktop) {
       initialized.current = true;
       void run(t("打开本地技能库"), reload);
     }
+    return () => {
+      // Leaving a plugin visit must stop any remaining items in a batch, even
+      // when a native filesystem transaction is still finishing safely.
+      cancelRequested.current = true;
+    };
   }, []);
   async function choose(purpose: string) {
     return call<DirectorySelection | null>("pick_directory", { purpose });
@@ -465,7 +477,7 @@ export default function App() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(event) => {
-                if (!isTauri()) return;
+                if (!isDesktop()) return;
                 event.preventDefault();
                 void call("open_repository").catch((error) =>
                   setError(errorMessage(error, locale)),

@@ -2,7 +2,7 @@ import { useContext, useState } from "react";
 import { useI18n } from "../../app/i18n";
 import { OperationContext } from "../../app/OperationContext";
 import { Modal } from "../../components/Modal";
-import { call, errorMessage } from "../../lib/ipc/client";
+import { useCall, errorMessage } from "../../lib/ipc/client";
 import type {
   DeploymentPlan,
   Project,
@@ -32,6 +32,7 @@ export function BatchInstallDialog({
   close: () => void;
 }) {
   const { t, locale } = useI18n();
+  const call = useCall();
   const operation = useContext(OperationContext);
   const [projectId, setProjectId] = useState(projects[0]?.id || "");
   const [agent, setAgent] = useState("codex");

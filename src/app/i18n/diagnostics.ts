@@ -11,6 +11,19 @@ const summaries: Record<string, string> = {
   PreviewLimit: "Finish or close other import previews first.",
   Busy: "Another operation is running. Wait for it or cancel it before retrying.",
   StateUnavailable: "Application state is unavailable. Restart Askills.",
+  HostInactive: "Open the Askills plugin before using local features.",
+  HostClosing: "The previous plugin session is closing. Wait and retry.",
+  HostDisconnected: "The Askills helper disconnected. Refresh to reconnect.",
+  HostUnavailable:
+    "Could not start the Askills helper. Rebuild or reinstall the plugin.",
+  ProtocolError:
+    "The helper returned an invalid response. Rebuild or reinstall the plugin.",
+  ProtocolMismatch:
+    "The plugin and helper versions do not match. Rebuild or reinstall the plugin.",
+  UnsupportedCommand: "This command is not supported by the Askills plugin.",
+  UnknownCommand: "This command is not supported by the Askills helper.",
+  InvalidRequest: "The request is invalid. Refresh and retry.",
+  OpenFailed: "Could not open the GitHub repository in your browser.",
   OpenRepositoryFailed: "Could not open the GitHub repository in your browser.",
   PreviewExpired: "The import preview expired. Preview the skill again.",
   CatalogExpired: "The source list expired. Find skills again.",

@@ -11,7 +11,7 @@ import {
   Trash2,
   ListChecks,
 } from "lucide-react";
-import { call, shortHash } from "../../lib/ipc/client";
+import { useCall, shortHash } from "../../lib/ipc/client";
 import type {
   Skill,
   SkillDocument,
@@ -49,6 +49,7 @@ export function LibraryView({
   installSkills: (skills: Skill[]) => void;
 }) {
   const { t, locale } = useI18n();
+  const call = useCall();
   const [query, setQuery] = useState("");
   const [doc, setDoc] = useState<SkillDocument | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);

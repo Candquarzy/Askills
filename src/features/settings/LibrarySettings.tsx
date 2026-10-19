@@ -3,7 +3,7 @@ import { FolderOpen } from "lucide-react";
 import { useI18n } from "../../app/i18n";
 import { OperationContext } from "../../app/OperationContext";
 import { Modal } from "../../components/Modal";
-import { call, errorMessage, sizeLabel } from "../../lib/ipc/client";
+import { useCall, errorMessage, sizeLabel } from "../../lib/ipc/client";
 import type {
   DirectorySelection,
   LibraryMigrationPlan,
@@ -27,6 +27,7 @@ export function LibrarySettings({
   migrated: (result: LibraryMigrationResult) => Promise<unknown>;
 }) {
   const { t, locale } = useI18n();
+  const call = useCall();
   const { notify } = useContext(OperationContext);
   const [pending, setPending] = useState<PendingMigration | null>(null);
 

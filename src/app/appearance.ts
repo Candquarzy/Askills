@@ -1,5 +1,6 @@
 import { useLayoutEffect } from "react";
 import type { Appearance } from "../lib/ipc/types";
+import { pluginHost } from "../lib/host";
 
 export const DEFAULT_APPEARANCE: Appearance = {
   mode: "system",
@@ -87,10 +88,12 @@ export function accentPalette(input: string, dark: boolean) {
 export function useAppearance(appearance: Appearance) {
   useLayoutEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const host = pluginHost();
     const apply = () => {
       const dark =
         appearance.mode === "dark" ||
-        (appearance.mode === "system" && media.matches);
+        (appearance.mode === "system" &&
+          (host ? host.isDark() : media.matches));
       const root = document.documentElement;
       root.dataset.theme = dark ? "dark" : "light";
       root.style.colorScheme = dark ? "dark" : "light";
@@ -106,7 +109,11 @@ export function useAppearance(appearance: Appearance) {
         root.style.setProperty(`--${name}`, value);
     };
     apply();
+    const stopHostTheme = host?.onThemeChange(apply);
     media.addEventListener("change", apply);
-    return () => media.removeEventListener("change", apply);
+    return () => {
+      stopHostTheme?.();
+      media.removeEventListener("change", apply);
+    };
   }, [appearance.mode, appearance.accentColor]);
 }

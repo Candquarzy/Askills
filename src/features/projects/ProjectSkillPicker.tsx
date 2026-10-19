@@ -3,7 +3,7 @@ import { useState } from "react";
 import { FolderPlus } from "lucide-react";
 import { Modal } from "../../components/Modal";
 import { SourcesView } from "../sources/SourcesView";
-import { call, shortHash } from "../../lib/ipc/client";
+import { useCall, shortHash } from "../../lib/ipc/client";
 import type {
   Project,
   Skill,
@@ -37,6 +37,7 @@ export function ProjectSkillPicker({
   historyChanged: (values: string[]) => void;
 }) {
   const { t } = useI18n();
+  const call = useCall();
   const [tab, setTab] = useState("library");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Skill | null>(null);

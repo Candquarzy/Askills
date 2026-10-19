@@ -7,7 +7,7 @@ import {
   Eye,
   Check,
 } from "lucide-react";
-import { call, errorMessage, shortHash } from "../../lib/ipc/client";
+import { useCall, errorMessage, shortHash } from "../../lib/ipc/client";
 import { prepareDownload } from "../../lib/ipc/download";
 import { OperationContext } from "../../app/OperationContext";
 import type {
@@ -36,6 +36,7 @@ export function SourcesView({
   embedded?: boolean;
 }) {
   const { t, locale } = useI18n();
+  const call = useCall();
   const [repository, setRepository] = useState(seed?.source.url || "");
   const repositoryInput = useRef<HTMLInputElement>(null);
   const [reference, setReference] = useState(seed?.source.reference || "");
@@ -89,7 +90,7 @@ export function SourcesView({
   async function preview(path: string) {
     if (!catalog) return;
     const result = await run(t("正在获取技能预览"), () =>
-      prepareDownload(catalog.id, path, operation.reportProgress),
+      prepareDownload(call, catalog.id, path, operation.reportProgress),
     );
     if (result) prepared(result);
   }
@@ -109,6 +110,7 @@ export function SourcesView({
           let pending: PreparedImport | undefined;
           try {
             pending = await prepareDownload(
+              call,
               catalog.id,
               path,
               operation.reportProgress,

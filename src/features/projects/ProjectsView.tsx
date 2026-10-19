@@ -11,7 +11,7 @@ import {
   Trash2,
   ListChecks,
 } from "lucide-react";
-import { call, shortHash } from "../../lib/ipc/client";
+import { useCall, shortHash } from "../../lib/ipc/client";
 import type {
   Project,
   Deployment,
@@ -75,6 +75,7 @@ export function ProjectsView({
   updated: (project: Project) => void;
 }) {
   const { t } = useI18n();
+  const call = useCall();
   const selected = projects.find((p) => p.id === selectedProjectId) || null;
   const [entries, setEntries] = useState<DetectedSkill[] | null>(null);
   const menu = useContextMenu<Project>();

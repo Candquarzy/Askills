@@ -1,8 +1,9 @@
-import { call } from "./client";
+import type { HostInvoke } from "../host";
 import type { PreparedImport } from "./types";
 import type { OperationProgress } from "../../app/OperationContext";
 
 export async function prepareDownload(
+  call: HostInvoke,
   catalogId: string,
   skillPath: string,
   report: (value: OperationProgress | null) => void,
