@@ -1,6 +1,6 @@
 [package]
 name = "askills"
-version = "1.0.0"
+version = "1.0.0-fix"
 description = "A local-first desktop manager for Agent Skills"
 authors = ["Candquarzy"]
 license = "MIT"

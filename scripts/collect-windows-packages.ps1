@@ -12,8 +12,8 @@ $outputPath = [IO.Path]::GetFullPath($OutputDirectory, $projectRoot)
 $manifest = Get-Content -LiteralPath (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json
 $configuration = Get-Content -LiteralPath (Join-Path $projectRoot 'src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
 if ($manifest.version -ne $configuration.version) { throw 'Frontend and Tauri versions differ.' }
-$binaryVersion = [version]$executable.VersionInfo.ProductVersion
-if ($binaryVersion.ToString(3) -ne $manifest.version) { throw 'Executable and package versions differ.' }
+$binaryVersion = $executable.VersionInfo.ProductVersion
+if ($binaryVersion -ne $manifest.version) { throw 'Executable and package versions differ.' }
 $reader = [IO.BinaryReader]::new([IO.File]::OpenRead($executable.FullName))
 try {
     if ($reader.ReadUInt16() -ne 0x5A4D) { throw 'Expected a Windows executable.' }

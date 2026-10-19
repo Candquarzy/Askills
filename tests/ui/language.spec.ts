@@ -5,7 +5,10 @@ import ts from "typescript";
 import english from "../../src/app/i18n/en.json" with { type: "json" };
 import chinese from "../../src/app/i18n/zh-CN.json" with { type: "json" };
 import { translate } from "../../src/app/i18n/messages";
+import packageManifest from "../../package.json" with { type: "json" };
 import { installBackendFixture, invocations } from "./fixtures";
+
+const RELEASE_LABEL = `V${packageManifest.version}`;
 
 async function navigate(page: Page, name: string) {
   await page
@@ -24,7 +27,9 @@ test("中英文切换即时生效且重载保留，不覆盖主题与仓库历�
   await expect(page.getByRole("heading", { name: /^skills 库/ })).toBeVisible();
   await expect(page).toHaveTitle("Askills · skills 管理");
   const footer = page.locator(".sidebar-bottom");
-  await expect(footer.locator(".version")).toHaveText("当前版本: V1.0.0");
+  await expect(footer.locator(".version")).toHaveText(
+    `当前版本: ${RELEASE_LABEL}`,
+  );
   const repository = footer.getByRole("link", { name: "GitHub 仓库" });
   await expect(repository).toHaveAttribute(
     "href",
@@ -42,7 +47,7 @@ test("中英文切换即时生效且重载保留，不覆盖主题与仓库历�
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page).toHaveTitle("Askills · Skill Manager");
   await expect(footer.locator(".version")).toHaveText(
-    "Current version: V1.0.0",
+    `Current version: ${RELEASE_LABEL}`,
   );
   await expect(
     footer.getByRole("link", { name: "GitHub repository" }),
