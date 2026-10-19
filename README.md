@@ -2,7 +2,11 @@
 
 使用 **Rust + Tauri 2** 构建的中英文 Agent Skills 桌面管理器。
 
-当前版本为 **V1.0.0**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。Windows 为当前验证平台；macOS/Linux 与安装包发布仍在后续计划中。
+当前版本为 **V1.0.0**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。提供 Windows x64 单文件免安装版；macOS/Linux 尚未发布。
+
+**[下载 Windows 免安装版](https://github.com/Candquarzy/Askills/releases/download/v1.0.0/Askills_1.0.0_windows_x64.exe)** · [版本说明](https://github.com/Candquarzy/Askills/releases/tag/v1.0.0)
+
+下载 EXE 后双击即可，界面、MiSans 和图标均内嵌。需要系统已安装 Microsoft Edge WebView2；设置与默认 skills 库保存在 `%LOCALAPPDATA%\io.github.candquarzy.askills`，可以在应用设置中更改库位置。
 
 ## 可以做什么
 
@@ -46,7 +50,16 @@ pnpm tauri build --debug --no-bundle -- --locked
 
 浏览器测试在 Windows 使用已安装的 Edge，其他平台先运行 `pnpm exec playwright install chromium`。测试中的 IPC 使用 fixture；Rust 测试在临时目录验证真实文件系统行为。
 
-最后一条构建命令生成 `src-tauri/target/debug/askills.exe`，不创建安装包。签名、安装/卸载与 Release 验证尚未完成。
+最后一条构建命令生成 `src-tauri/target/debug/askills.exe`，不创建安装包。
+
+构建正式单文件版本并整理分发文件（PowerShell 7）：
+
+```powershell
+pnpm tauri build --ci --no-bundle -- --locked
+./scripts/collect-windows-packages.ps1
+```
+
+产物位于 `artifacts/windows-x64/`，包含 EXE、SHA-256 校验值、源码 commit 信息及 MIT 许可。输出目录必须为空，避免混入旧版本；可用 `-OutputDirectory` 指定其他空目录。当前 EXE 未进行代码签名。
 
 Windows 原生冒烟：构建后执行 `pnpm test:native`；加 `--github` 验证 GitHub API 导入，加 `--git` 验证本机 Git 导入。联网模式还验证自定义名称保存。测试只使用独立临时数据目录。[逐步本地验收](docs/local-testing.md) 包含导入、部署、升级、回滚及冲突测试。
 
@@ -84,6 +97,6 @@ GitHub API 仅支持公共仓库；本地 Git 使用本机已有代理与凭据�
 
 ## 协作与许可
 
-本个人项目日常开发直接在 `main` 提交并推送，无需 PR，参见 [参与开发](CONTRIBUTING.md)。CI 执行前端检查、浏览器测试及 Windows Rust 测试和桌面构建。
+本个人项目日常开发直接在 `main` 提交并推送，无需 PR，参见 [参与开发](CONTRIBUTING.md)。CI 在每次 push（所有分支和标签）、PR 或手动触发时执行前端检查、浏览器测试、Windows Rust 测试，并构建正式单文件 EXE。每次运行的产物以 commit SHA 命名，在 [Actions](https://github.com/Candquarzy/Askills/actions/workflows/ci.yml) 的 Artifacts 中保留 14 天；自动构建只有仓库读取权限，不会创建 Release，也不会取消较早提交的构建。
 
 Askills 使用 [MIT](LICENSE) 协议。第三方 skills、MiSans 字体保留各自的许可与版权声明，依赖遵循各自许可。
