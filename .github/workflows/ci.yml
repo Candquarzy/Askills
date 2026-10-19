@@ -22,6 +22,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm check
+      - run: pnpm test:ztools
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:ui
@@ -65,3 +66,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+      - name: Build local ZTools plugin
+        run: pnpm build:ztools
+      - name: Test real ZTools helper
+        run: pnpm test:ztools:helper
+      - name: Upload ZTools plugin package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Askills-ztools-windows-x64-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/ztools/
+          if-no-files-found: error
+          retention-days: 14

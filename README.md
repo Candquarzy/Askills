@@ -28,6 +28,8 @@
 
 使用步骤见 **[用户指南](docs/user-guide.md)**；架构、当前实现范围和后续里程碑见 **[详细实现方案](docs/architecture.md)**。
 
+另提供 **[ZTools 插件本地开发版](docs/ztools-plugin.md)**：在 ZTools 中使用同一套 skills 管理界面与数据。执行 `pnpm build:ztools` 生成可本地导入的 `.zpx` 包，暂未发布到插件中心。
+
 ## 本地开发
 
 需要 Node.js 24、pnpm 11.22.0、Rust stable，以及系统对应的 [Tauri 前置依赖](https://v2.tauri.app/start/prerequisites/)。Windows 需要 MSVC C++ 工具链与 WebView2。
