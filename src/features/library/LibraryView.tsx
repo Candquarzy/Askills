@@ -1,5 +1,7 @@
 import { useI18n } from "../../app/i18n";
-import { useState } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import { pluginHost } from "../../lib/host";
+import "../../app/ztools-layout.css";
 import {
   ArrowDownToLine,
   BookOpen,
@@ -50,6 +52,8 @@ export function LibraryView({
 }) {
   const { t, locale } = useI18n();
   const call = useCall();
+  const inlineDetails = !!pluginHost();
+  const layout = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [doc, setDoc] = useState<SkillDocument | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -110,6 +114,113 @@ export function LibraryView({
       setRenaming(null);
     }
   }
+  useLayoutEffect(() => {
+    if (inlineDetails) {
+      layout.current
+        ?.querySelector<HTMLElement>('.skill-card[aria-expanded="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    }
+  }, [inlineDetails, doc?.skill.id]);
+  const detail = doc && (
+    <aside className="detail-panel">
+      <div className="detail-heading">
+        <h2>{currentSkill?.displayName || doc.skill.name}</h2>
+        <button className="text-button" onClick={() => setDoc(null)}>
+          {t("收起")}
+        </button>
+      </div>
+      <div className="button-row">
+        <span className="path">
+          {t("原始名称：")}
+          {doc.skill.name}
+        </span>
+        <button
+          className="text-button"
+          disabled={busy}
+          onClick={() => {
+            if (currentSkill) rename(currentSkill);
+          }}
+        >
+          <Pencil size={14} />
+          {t("编辑显示名称")}
+        </button>
+      </div>
+      <p className="muted">{doc.skill.description}</p>
+      <div className="detail-actions">
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={() => install(doc.revision)}
+        >
+          <ArrowDownToLine size={15} />
+          {t("添加到项目")}
+        </button>
+        {doc.skill.source.kind === "github" && (
+          <button disabled={busy} onClick={() => checkUpdate(doc.skill)}>
+            <RefreshCw size={15} />
+            {t("检查更新")}
+          </button>
+        )}
+      </div>
+      <label className="field">
+        {t("阅读版本")}
+        <select
+          disabled={busy}
+          value={doc.revision.id}
+          onChange={(e) => void open(doc.skill, e.target.value)}
+        >
+          {revisions.map((r) => (
+            <option key={r.id} value={r.id}>
+              {shortHash(r.source.commit || r.hash)} ·{" "}
+              {new Date(Number(r.createdAt) * 1000).toLocaleDateString(locale)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="meta-line">
+        <span>{t("{count} 个文件", { count: doc.revision.fileCount })}</span>
+        <code>{shortHash(doc.revision.hash)}</code>
+        {revisions.length > 1 && (
+          <button
+            className="text-button"
+            disabled={busy}
+            onClick={() => void compare()}
+          >
+            <History size={14} />
+            {t("对比最新版本")}
+          </button>
+        )}
+      </div>
+      <p className="path">
+        {t("路径：")}
+        {doc.revision.source.url || doc.revision.source.localPath}
+      </p>
+      {doc.warnings
+        .filter(
+          (warning) =>
+            warning !==
+            "包含 scripts；Askills 不执行脚本，安装后 Agent 可能按指令调用它们",
+        )
+        .map((w) => (
+          <p className="notice" key={w}>
+            {t(w)}
+          </p>
+        ))}
+      <div className="reader-tabs">
+        <button className={!raw ? "active" : ""} onClick={() => setRaw(false)}>
+          {t("阅读")}
+        </button>
+        <button className={raw ? "active" : ""} onClick={() => setRaw(true)}>
+          {t("原始 Markdown")}
+        </button>
+      </div>
+      {raw ? (
+        <pre className="raw-document">{doc.markdown}</pre>
+      ) : (
+        <Markdown text={doc.markdown} />
+      )}
+    </aside>
+  );
   return (
     <>
       <header className="page-head">
@@ -170,70 +281,82 @@ export function LibraryView({
           </button>
         </SelectionToolbar>
       )}
-      <div className={doc ? "library-layout with-detail" : "library-layout"}>
-        <section className="skill-list" aria-label={t("技能列表")}>
+      <div
+        ref={layout}
+        className={`library-layout${doc ? " with-detail" : ""}${inlineDetails ? " ztools-inline-layout" : ""}`}
+      >
+        <section
+          className={`skill-list${inlineDetails ? " ztools-inline-list" : ""}`}
+          aria-label={t("技能列表")}
+        >
           {filtered.map((skill) => (
-            <div
-              key={skill.id}
-              className="selectable-item"
-              {...menu.bind(skill, busy)}
-            >
-              {selection.active && (
-                <input
-                  type="checkbox"
+            <Fragment key={skill.id}>
+              <div className="selectable-item" {...menu.bind(skill, busy)}>
+                {selection.active && (
+                  <input
+                    type="checkbox"
+                    disabled={busy}
+                    aria-label={t("选择 {name}", {
+                      name: skill.displayName || skill.name,
+                    })}
+                    checked={selection.ids.includes(skill.id)}
+                    onChange={() => selection.toggle(skill.id)}
+                  />
+                )}
+                <button
                   disabled={busy}
-                  aria-label={t("选择 {name}", {
-                    name: skill.displayName || skill.name,
-                  })}
-                  checked={selection.ids.includes(skill.id)}
-                  onChange={() => selection.toggle(skill.id)}
-                />
-              )}
-              <button
-                disabled={busy}
-                className={
-                  (
+                  className={
+                    (
+                      selection.active
+                        ? selection.ids.includes(skill.id)
+                        : doc?.skill.id === skill.id
+                    )
+                      ? "skill-card selected"
+                      : "skill-card"
+                  }
+                  aria-expanded={
+                    inlineDetails ? doc?.skill.id === skill.id : undefined
+                  }
+                  aria-pressed={
                     selection.active
                       ? selection.ids.includes(skill.id)
-                      : doc?.skill.id === skill.id
-                  )
-                    ? "skill-card selected"
-                    : "skill-card"
-                }
-                aria-pressed={
-                  selection.active
-                    ? selection.ids.includes(skill.id)
-                    : undefined
-                }
-                onClick={() =>
-                  selection.active
-                    ? selection.toggle(skill.id)
-                    : void open(skill)
-                }
-              >
-                <span className="skill-symbol">
-                  <BookOpen size={20} />
-                </span>
-                <span className="skill-card-content">
-                  <strong>{skill.displayName || skill.name}</strong>
-                  {skill.displayName && (
-                    <small className="path">{skill.name}</small>
-                  )}
-                  <span className="skill-description">{skill.description}</span>
-                  <span className="skill-meta">
-                    <span>
-                      {skill.source.kind === "github"
-                        ? "GitHub"
-                        : t("本地导入")}
+                      : undefined
+                  }
+                  onClick={() =>
+                    selection.active
+                      ? selection.toggle(skill.id)
+                      : inlineDetails && doc?.skill.id === skill.id
+                        ? setDoc(null)
+                        : void open(skill)
+                  }
+                >
+                  <span className="skill-symbol">
+                    <BookOpen size={20} />
+                  </span>
+                  <span className="skill-card-content">
+                    <strong>{skill.displayName || skill.name}</strong>
+                    {skill.displayName && (
+                      <small className="path">{skill.name}</small>
+                    )}
+                    <span className="skill-description">
+                      {skill.description}
                     </span>
-                    <span>{skill.license || t("许可未声明")}</span>
-                    <span>
-                      {t("{count} 个版本", { count: skill.revisionCount })}
+                    <span className="skill-meta">
+                      <span>
+                        {skill.source.kind === "github"
+                          ? "GitHub"
+                          : t("本地导入")}
+                      </span>
+                      <span>{skill.license || t("许可未声明")}</span>
+                      <span>
+                        {t("{count} 个版本", { count: skill.revisionCount })}
+                      </span>
                     </span>
                   </span>
-                </span>
-              </button>
-            </div>
+                </button>
+              </div>
+              {inlineDetails && doc?.skill.id === skill.id && detail}
+            </Fragment>
           ))}
           {!filtered.length && (
             <EmptyState
@@ -248,116 +371,7 @@ export function LibraryView({
             </EmptyState>
           )}
         </section>
-        {doc && (
-          <aside className="detail-panel">
-            <div className="detail-heading">
-              <h2>{currentSkill?.displayName || doc.skill.name}</h2>
-              <button className="text-button" onClick={() => setDoc(null)}>
-                {t("收起")}
-              </button>
-            </div>
-            <div className="button-row">
-              <span className="path">
-                {t("原始名称：")}
-                {doc.skill.name}
-              </span>
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() => {
-                  if (currentSkill) rename(currentSkill);
-                }}
-              >
-                <Pencil size={14} />
-                {t("编辑显示名称")}
-              </button>
-            </div>
-            <p className="muted">{doc.skill.description}</p>
-            <div className="detail-actions">
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() => install(doc.revision)}
-              >
-                <ArrowDownToLine size={15} />
-                {t("添加到项目")}
-              </button>
-              {doc.skill.source.kind === "github" && (
-                <button disabled={busy} onClick={() => checkUpdate(doc.skill)}>
-                  <RefreshCw size={15} />
-                  {t("检查更新")}
-                </button>
-              )}
-            </div>
-            <label className="field">
-              {t("阅读版本")}
-              <select
-                disabled={busy}
-                value={doc.revision.id}
-                onChange={(e) => void open(doc.skill, e.target.value)}
-              >
-                {revisions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {shortHash(r.source.commit || r.hash)} ·{" "}
-                    {new Date(Number(r.createdAt) * 1000).toLocaleDateString(
-                      locale,
-                    )}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="meta-line">
-              <span>
-                {t("{count} 个文件", { count: doc.revision.fileCount })}
-              </span>
-              <code>{shortHash(doc.revision.hash)}</code>
-              {revisions.length > 1 && (
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() => void compare()}
-                >
-                  <History size={14} />
-                  {t("对比最新版本")}
-                </button>
-              )}
-            </div>
-            <p className="path">
-              {t("路径：")}
-              {doc.revision.source.url || doc.revision.source.localPath}
-            </p>
-            {doc.warnings
-              .filter(
-                (warning) =>
-                  warning !==
-                  "包含 scripts；Askills 不执行脚本，安装后 Agent 可能按指令调用它们",
-              )
-              .map((w) => (
-                <p className="notice" key={w}>
-                  {t(w)}
-                </p>
-              ))}
-            <div className="reader-tabs">
-              <button
-                className={!raw ? "active" : ""}
-                onClick={() => setRaw(false)}
-              >
-                {t("阅读")}
-              </button>
-              <button
-                className={raw ? "active" : ""}
-                onClick={() => setRaw(true)}
-              >
-                {t("原始 Markdown")}
-              </button>
-            </div>
-            {raw ? (
-              <pre className="raw-document">{doc.markdown}</pre>
-            ) : (
-              <Markdown text={doc.markdown} />
-            )}
-          </aside>
-        )}
+        {!inlineDetails && detail}
       </div>
       {menu.anchor && !busy && (
         <ContextMenu

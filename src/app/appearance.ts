@@ -90,11 +90,12 @@ export function useAppearance(appearance: Appearance) {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const host = pluginHost();
     const apply = () => {
+      const hostDark = host?.isDark();
       const dark =
         appearance.mode === "dark" ||
-        (appearance.mode === "system" &&
-          (host ? host.isDark() : media.matches));
+        (appearance.mode === "system" && (hostDark ?? media.matches));
       const root = document.documentElement;
+      if (host) root.dataset.hostTheme = hostDark ? "dark" : "light";
       root.dataset.theme = dark ? "dark" : "light";
       root.style.colorScheme = dark ? "dark" : "light";
       const palette = accentPalette(appearance.accentColor, dark);

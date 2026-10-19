@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { pluginHost, type HostPage } from "../lib/host";
 import App from "./App";
 import { I18nProvider } from "./i18n";
+import "./ztools-theme.css";
 
 /** Each plugin visit gets a fresh UI: preview/selection tokens belong to a helper session. */
 export function HostApp() {
@@ -10,6 +11,14 @@ export function HostApp() {
     page: HostPage;
     sequence: number;
   } | null>(null);
+  useLayoutEffect(() => {
+    if (!host) return;
+    document.documentElement.dataset.host = "ztools";
+    return () => {
+      delete document.documentElement.dataset.host;
+      delete document.documentElement.dataset.hostTheme;
+    };
+  }, [host]);
   useEffect(() => {
     if (!host) return;
     let sequence = 0;

@@ -1,5 +1,7 @@
 import { useI18n } from "../../app/i18n";
-import { useState } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import { pluginHost } from "../../lib/host";
+import "../../app/ztools-layout.css";
 import {
   FolderGit2,
   FolderPlus,
@@ -76,6 +78,8 @@ export function ProjectsView({
 }) {
   const { t } = useI18n();
   const call = useCall();
+  const inlineDetails = !!pluginHost();
+  const layout = useRef<HTMLDivElement>(null);
   const selected = projects.find((p) => p.id === selectedProjectId) || null;
   const [entries, setEntries] = useState<DetectedSkill[] | null>(null);
   const menu = useContextMenu<Project>();
@@ -107,6 +111,121 @@ export function ProjectsView({
     if (result) setEntries(result);
   }
   const installed = deployments.filter((d) => d.projectId === selected?.id);
+  useLayoutEffect(() => {
+    if (inlineDetails) {
+      layout.current
+        ?.querySelector<HTMLElement>('.project-card[aria-expanded="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    }
+  }, [inlineDetails, selected?.id]);
+  function collapse() {
+    selectProject("");
+    setEntries(null);
+  }
+  const detail = selected && (
+    <section className="project-detail">
+      <div className="detail-heading">
+        <h2>{selected.displayName || selected.name}</h2>
+        {inlineDetails && (
+          <button className="text-button" disabled={busy} onClick={collapse}>
+            {t("收起")}
+          </button>
+        )}
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={() => addSkills(selected)}
+        >
+          <FolderPlus size={16} />
+          {t("添加技能")}
+        </button>
+        <button disabled={busy} onClick={() => void scan(selected)}>
+          <RefreshCw size={15} />
+          {t("重新扫描")}
+        </button>
+      </div>
+      <p className="path">{selected.path}</p>
+      <h3 className="section-title">
+        {t("由 Askills 管理")}
+        <span>{installed.length}</span>
+      </h3>
+      {installed.map((item) => (
+        <div className="deployment-row" key={item.id}>
+          <div>
+            <strong>{item.name}</strong>
+            <p>
+              {item.agent} · {item.mode} ·{" "}
+              {t(statusLabels[item.status] || item.status)}
+            </p>
+            <code className="path">{item.targetPath}</code>
+            <small>
+              {t("版本 {hash}", { hash: shortHash(item.revisionId) })}
+            </small>
+          </div>
+          <div className="button-column">
+            <button
+              disabled={busy || !item.previousRevisionId}
+              onClick={() => changeDeployment(item, "rollback")}
+            >
+              <RotateCcw size={14} />
+              {t("回滚")}
+            </button>
+            <button
+              className="danger-quiet"
+              disabled={busy}
+              onClick={() => changeDeployment(item, "remove")}
+            >
+              <Unplug size={14} />
+              {t("停用")}
+            </button>
+          </div>
+        </div>
+      ))}
+      {!installed.length && (
+        <p className="subtle-empty">
+          {t("从技能库选择一个技能，点击“添加到项目”。")}
+        </p>
+      )}
+      <h3 className="section-title">
+        {t("扫描发现")}
+        <span>{entries?.length ?? "—"}</span>
+      </h3>
+      {entries?.map((entry, index) => (
+        <div className="detected-row" key={entry.path + index}>
+          <div className="detail-heading">
+            <strong>{entry.name}</strong>
+            <span className="badge">
+              {t(statusLabels[entry.status] || entry.status)}
+            </span>
+          </div>
+          <p className="path">{entry.path}</p>
+          <p className="muted">
+            {t("可能读取：")}
+            {entry.consumers.join(" / ") || t("未知工具")}
+          </p>
+          {entry.resolvedPath && entry.resolvedPath !== entry.path && (
+            <p className="path">
+              {t("目标：")}
+              {entry.resolvedPath}
+            </p>
+          )}
+          {entry.diagnostics.map((d) => (
+            <p className="notice" key={d}>
+              {t(d)}
+            </p>
+          ))}
+        </div>
+      ))}
+      {entries?.length === 0 && (
+        <p className="subtle-empty">
+          {t("没有发现现有技能目录。可以从技能库添加。")}
+        </p>
+      )}
+      <p className="footnote">
+        {t("扫描只读取文件。多个工具可能同时读取同一个兼容目录。")}
+      </p>
+    </section>
+  );
   return (
     <>
       <header className="page-head">
@@ -149,61 +268,71 @@ export function ProjectsView({
           </button>
         </SelectionToolbar>
       )}
-      <div className="projects-layout">
-        <section className="project-list" aria-label={t("项目列表")}>
+      <div
+        ref={layout}
+        className={`projects-layout${inlineDetails ? " ztools-inline-layout" : ""}`}
+      >
+        <section
+          className={`project-list${inlineDetails ? " ztools-inline-list" : ""}`}
+          aria-label={t("项目列表")}
+        >
           {projects.map((project) => (
-            <div
-              key={project.id}
-              className="selectable-item"
-              {...menu.bind(project, busy)}
-            >
-              {selection.active && (
-                <input
-                  type="checkbox"
+            <Fragment key={project.id}>
+              <div className="selectable-item" {...menu.bind(project, busy)}>
+                {selection.active && (
+                  <input
+                    type="checkbox"
+                    disabled={busy}
+                    aria-label={t("选择 {name}", {
+                      name: project.displayName || project.name,
+                    })}
+                    checked={selection.ids.includes(project.id)}
+                    onChange={() => selection.toggle(project.id)}
+                  />
+                )}
+                <button
                   disabled={busy}
-                  aria-label={t("选择 {name}", {
-                    name: project.displayName || project.name,
-                  })}
-                  checked={selection.ids.includes(project.id)}
-                  onChange={() => selection.toggle(project.id)}
-                />
-              )}
-              <button
-                disabled={busy}
-                className={
-                  (
+                  className={
+                    (
+                      selection.active
+                        ? selection.ids.includes(project.id)
+                        : selected?.id === project.id
+                    )
+                      ? "project-card selected"
+                      : "project-card"
+                  }
+                  aria-expanded={
+                    inlineDetails ? selected?.id === project.id : undefined
+                  }
+                  aria-pressed={
                     selection.active
                       ? selection.ids.includes(project.id)
-                      : selected?.id === project.id
-                  )
-                    ? "project-card selected"
-                    : "project-card"
-                }
-                aria-pressed={
-                  selection.active
-                    ? selection.ids.includes(project.id)
-                    : undefined
-                }
-                onClick={() =>
-                  selection.active
-                    ? selection.toggle(project.id)
-                    : void scan(project)
-                }
-              >
-                <FolderGit2 size={22} />
-                <span>
-                  <strong>{project.displayName || project.name}</strong>
-                  <small className="path">{project.path}</small>
-                  <small>
-                    {t("{count} 个受管理技能", {
-                      count: deployments.filter(
-                        (d) => d.projectId === project.id,
-                      ).length,
-                    })}
-                  </small>
-                </span>
-              </button>
-            </div>
+                      : undefined
+                  }
+                  onClick={() =>
+                    selection.active
+                      ? selection.toggle(project.id)
+                      : inlineDetails && selected?.id === project.id
+                        ? collapse()
+                        : void scan(project)
+                  }
+                >
+                  <FolderGit2 size={22} />
+                  <span>
+                    <strong>{project.displayName || project.name}</strong>
+                    <small className="path">{project.path}</small>
+                    <small>
+                      {t("{count} 个受管理技能", {
+                        count: deployments.filter(
+                          (d) => d.projectId === project.id,
+                        ).length,
+                      })}
+                    </small>
+                  </span>
+                </button>
+              </div>
+              {inlineDetails && selected?.id === project.id && detail}
+            </Fragment>
           ))}
           {!projects.length && (
             <EmptyState
@@ -214,114 +343,16 @@ export function ProjectsView({
             </EmptyState>
           )}
         </section>
-        {selected ? (
-          <section className="project-detail">
-            <div className="detail-heading">
-              <h2>{selected.displayName || selected.name}</h2>
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() => addSkills(selected)}
+        {selected
+          ? !inlineDetails && detail
+          : projects.length > 0 && (
+              <EmptyState
+                icon={<ScanSearch size={28} />}
+                title={t("选择项目查看技能")}
               >
-                <FolderPlus size={16} />
-                {t("添加技能")}
-              </button>
-              <button disabled={busy} onClick={() => void scan(selected)}>
-                <RefreshCw size={15} />
-                {t("重新扫描")}
-              </button>
-            </div>
-            <p className="path">{selected.path}</p>
-            <h3 className="section-title">
-              {t("由 Askills 管理")}
-              <span>{installed.length}</span>
-            </h3>
-            {installed.map((item) => (
-              <div className="deployment-row" key={item.id}>
-                <div>
-                  <strong>{item.name}</strong>
-                  <p>
-                    {item.agent} · {item.mode} ·{" "}
-                    {t(statusLabels[item.status] || item.status)}
-                  </p>
-                  <code className="path">{item.targetPath}</code>
-                  <small>
-                    {t("版本 {hash}", { hash: shortHash(item.revisionId) })}
-                  </small>
-                </div>
-                <div className="button-column">
-                  <button
-                    disabled={busy || !item.previousRevisionId}
-                    onClick={() => changeDeployment(item, "rollback")}
-                  >
-                    <RotateCcw size={14} />
-                    {t("回滚")}
-                  </button>
-                  <button
-                    className="danger-quiet"
-                    disabled={busy}
-                    onClick={() => changeDeployment(item, "remove")}
-                  >
-                    <Unplug size={14} />
-                    {t("停用")}
-                  </button>
-                </div>
-              </div>
-            ))}
-            {!installed.length && (
-              <p className="subtle-empty">
-                {t("从技能库选择一个技能，点击“添加到项目”。")}
-              </p>
+                {t("同时展示已管理的部署和项目中的现有技能。")}
+              </EmptyState>
             )}
-            <h3 className="section-title">
-              {t("扫描发现")}
-              <span>{entries?.length ?? "—"}</span>
-            </h3>
-            {entries?.map((entry, index) => (
-              <div className="detected-row" key={entry.path + index}>
-                <div className="detail-heading">
-                  <strong>{entry.name}</strong>
-                  <span className="badge">
-                    {t(statusLabels[entry.status] || entry.status)}
-                  </span>
-                </div>
-                <p className="path">{entry.path}</p>
-                <p className="muted">
-                  {t("可能读取：")}
-                  {entry.consumers.join(" / ") || t("未知工具")}
-                </p>
-                {entry.resolvedPath && entry.resolvedPath !== entry.path && (
-                  <p className="path">
-                    {t("目标：")}
-                    {entry.resolvedPath}
-                  </p>
-                )}
-                {entry.diagnostics.map((d) => (
-                  <p className="notice" key={d}>
-                    {t(d)}
-                  </p>
-                ))}
-              </div>
-            ))}
-            {entries?.length === 0 && (
-              <p className="subtle-empty">
-                {t("没有发现现有技能目录。可以从技能库添加。")}
-              </p>
-            )}
-            <p className="footnote">
-              {t("扫描只读取文件。多个工具可能同时读取同一个兼容目录。")}
-            </p>
-          </section>
-        ) : (
-          projects.length > 0 && (
-            <EmptyState
-              icon={<ScanSearch size={28} />}
-              title={t("选择项目查看技能")}
-            >
-              {t("同时展示已管理的部署和项目中的现有技能。")}
-            </EmptyState>
-          )
-        )}
       </div>
       {menu.anchor && !busy && (
         <ContextMenu
