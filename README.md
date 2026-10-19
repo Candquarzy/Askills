@@ -14,6 +14,8 @@
 
 除了独立桌面版，也可以把 Askills 作为 **ZTools 插件**使用，目前支持 Windows x64。插件提供同一套 skills 库、项目、来源和设置，采用透明背景，并在选中卡片下方直接展开详情。
 
+**插件中心 1.0.1 已提交审核：[ZToolsCenter/ZTools-plugins #672](https://github.com/ZToolsCenter/ZTools-plugins/pull/672)。** 审核通过并上架后，可在 ZTools 插件中心搜索 `Askills` 安装；审核期间可按下列方式本地安装。
+
 本地安装步骤：
 
 1. 执行 `pnpm install --frozen-lockfile` 和 `pnpm build:ztools`，生成 `artifacts/ztools/Askills.zpx`。

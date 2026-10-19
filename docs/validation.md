@@ -1,5 +1,17 @@
 # 验证记录
 
+## 2026-10-19 · 1.0.1 插件中心提交
+
+项目、Rust、Tauri 和插件清单统一为 1.0.1，README 添加 ZTools 使用方式及用户指定的 AI 构建说明。已发布的桌面 EXE 下载链接仍指向实际存在的 V1.0.0-fix；本轮没有创建新的桌面 GitHub Release。
+
+类型和格式检查、正式插件构建通过，9 项中英界面／插件回归与 2 项用于审核截图的视觉用例通过。独立 ZTools 3.2.0 实际安装 1.0.1，作者 Candquarzy、核心版本、界面版本、字体、语言与主题、目录授权撤销、退出释放锁和重入均通过，页面及控制台错误为空；报告为 `%TEMP%\ztools-smoke-bCHTTE\report.json`。本轮未修改 Rust 业务逻辑，未重复完整 Rust 单元回归。
+
+插件中心材料包含已验证的预编译运行文件、完整源码快照、MIT／字体许可、更新记录、演示截图和 SHA-256 清单。中心构建入口本地验证通过；Git 中保存的 14 个运行文件逐一匹配已验证摘要，通过 `.gitattributes` 保留运行文件原始字节，避免跨平台换行转换使摘要失效。源码快照来自 `01171855dbafad68572b22945fb618f868272d59`。
+
+已按官方 fork／插件分支／PR 流程，推送到 `Candquarzy/ZTools-plugins` 的 `plugin/askills`，提交 `0571889af9c7638fd6ba76a99f3caab612016f25`，创建并标为可审核的 [PR #672](https://github.com/ZToolsCenter/ZTools-plugins/pull/672)。远端分页文件 API 确认 201 个文件全部在 `plugins/askills/` 下。截图明确使用演示数据与模拟宿主背景。
+
+中心 [构建运行](https://github.com/ZToolsCenter/ZTools-plugins/actions/runs/39201925882) 当前为 `action_required`，页面明确显示等待维护者批准运行，未获得远端构建通过的证据；尚未合入或上架。Askills 原仓库 main 没有额外推送。
+
 ## 2026-10-19 · ZTools 作者、透明背景与详情布局
 
 安装预览的开发者改为 `Candquarzy`。插件版的 skill／项目详情直接插在选中卡片后，列表保持单列；切换、重复点击和“收起”均可操作，详情不继承卡片右键菜单。桌面版仍使用原有布局。

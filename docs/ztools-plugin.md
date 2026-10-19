@@ -2,6 +2,8 @@
 
 Askills 的 ZTools 插件复用桌面版的 React 界面与 Rust 业务逻辑，提供 skills 库、项目、来源和设置四个页面。目前支持 Windows x64，当前版本为 **1.0.1**。插件中心通过官方仓库 PR 审核后上架。
 
+1.0.1 的审核提交为 **[ZToolsCenter/ZTools-plugins #672](https://github.com/ZToolsCenter/ZTools-plugins/pull/672)**，已补齐截图和自检说明并标为可审核。审核与上架状态以该 PR 和插件中心为准。
+
 ## 本地安装与使用
 
 构建后，将 `artifacts/ztools/Askills.zpx` 拖入 ZTools，或用 ZTools 打开该文件。在安装确认页核对名称为 **Askills** 后安装。

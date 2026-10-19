@@ -159,6 +159,7 @@ await cp(
   path.join(output, "CHANGELOG.md"),
 );
 await writeFile(path.join(output, ".gitignore"), "node_modules/\ndist/\n");
+await writeFile(path.join(output, ".gitattributes"), "payload/** -text\n");
 await writeFile(
   path.join(output, "package.json"),
   JSON.stringify(
