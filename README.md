@@ -2,7 +2,7 @@
 
 使用 **Rust + Tauri 2** 构建的中英文 Agent Skills 桌面管理器 (纯AI构建, 由GPT6支持) 。
 
-当前项目版本为 **V1.0.1**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。提供 Windows x64 单文件免安装版和 ZTools 插件；macOS/Linux 尚未发布。
+当前项目版本为 **V1.0.2**（本地测试版，尚未发布），已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。提供 Windows x64 单文件免安装版和 ZTools 插件；macOS/Linux 尚未发布。
 
 **[下载已发布的 Windows 免安装版（V1.0.0-fix）](https://github.com/Candquarzy/Askills/releases/download/v1.0.0-fix/Askills_1.0.0-fix_windows_x64.exe)** · [版本说明](https://github.com/Candquarzy/Askills/releases/tag/v1.0.0-fix)
 
