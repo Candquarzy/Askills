@@ -293,6 +293,8 @@ try {
       assert.equal(preview.success, true, JSON.stringify(preview));
       assert.equal(preview.pluginInfo.name, manifest.name);
       assert.equal(preview.pluginInfo.version, manifest.version);
+      assert.equal(preview.pluginInfo.author, manifest.author);
+      assert.equal(preview.pluginInfo.author, "Candquarzy");
       assert.match(preview.pluginInfo.logo, /^data:image\//);
       let installed = await settings.evaluate(
         (archivePath) =>
@@ -331,6 +333,7 @@ try {
         path: installed.plugin.path,
         name: preview.pluginInfo.name,
         version: preview.pluginInfo.version,
+        author: preview.pluginInfo.author,
       };
       report.checks.push(
         "native ZPX preview/install, ASAR repack and declared helper unpack succeeded",

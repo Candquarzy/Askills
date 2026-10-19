@@ -1,6 +1,7 @@
 {
   "name": "askills",
   "title": "Askills",
+  "author": "Candquarzy",
   "description": "管理本地 skills 库，并为项目添加、更新与移除 skills。",
   "version": "1.0.0-fix",
   "platform": ["win32"],
