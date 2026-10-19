@@ -2,9 +2,9 @@
 
 使用 **Rust + Tauri 2** 构建的中英文 Agent Skills 桌面管理器 (纯AI构建, 由GPT6支持) 。
 
-当前项目版本为 **V1.0.2**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。提供 Windows x64 单文件免安装版和 ZTools 插件；macOS/Linux 尚未发布。1.0.2 暂未发布 GitHub Release，下方链接为已发布的桌面版。
+当前项目版本为 **V1.0.2**，已实现本地 skills 库、项目部署和公共 GitHub 来源的完整流程。提供 Windows x64 单文件免安装版和 ZTools 插件；macOS/Linux 尚未发布。
 
-**[下载已发布的 Windows 免安装版（V1.0.0-fix）](https://github.com/Candquarzy/Askills/releases/download/v1.0.0-fix/Askills_1.0.0-fix_windows_x64.exe)** · [版本说明](https://github.com/Candquarzy/Askills/releases/tag/v1.0.0-fix)
+**[下载 Windows 免安装版（V1.0.2）](https://github.com/Candquarzy/Askills/releases/download/v1.0.2/Askills_1.0.2_windows_x64.exe)** · [下载 ZTools 插件（V1.0.2）](https://github.com/Candquarzy/Askills/releases/download/v1.0.2/Askills-1.0.2.zpx) · [版本说明](https://github.com/Candquarzy/Askills/releases/tag/v1.0.2)
 
 下载 EXE 后双击即可，界面和图标均内嵌。需要系统已安装 Microsoft Edge WebView2；Windows 设置和项目记录保存在 `%LOCALAPPDATA%\asklils`，全新使用时的默认 skills 库为 `%LOCALAPPDATA%\asklils\library`，可以在应用设置中更改库位置。
 
@@ -18,9 +18,11 @@
 
 本地安装步骤：
 
-1. 执行 `pnpm install --frozen-lockfile` 和 `pnpm build:ztools`，生成 `artifacts/ztools/Askills.zpx`。
+1. 从 [V1.0.2 Release](https://github.com/Candquarzy/Askills/releases/tag/v1.0.2) 下载 `Askills-1.0.2.zpx`。
 2. 将 `.zpx` 拖入 ZTools，核对插件名称 **Askills**、开发者 **Candquarzy** 后安装。
 3. 在 ZTools 搜索 `Askills` 或 `skills库` 打开库；也可用 `skills项目`、`skills来源`、`skills设置` 直接进入相应页面。
+
+如需从源码构建，执行 `pnpm install --frozen-lockfile` 和 `pnpm build:ztools`，生成 `artifacts/ztools/Askills.zpx`。
 
 插件与独立桌面版共用 `%LOCALAPPDATA%\asklils` 中的设置和记录，以及已配置的 skills 库。切换使用前先退出占用同一库的另一实例；出现 `LibraryBusy` 时，关闭另一实例后刷新即可。
 
