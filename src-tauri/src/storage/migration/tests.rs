@@ -1,5 +1,44 @@
 use super::*;
 
+#[test]
+fn an_upgraded_default_library_migration_recovers_after_the_ready_boundary() {
+    let mut fixture = Fixture::new();
+    let legacy = fixture.store.data_dir.clone();
+    let data = fixture.root.path().join("asklils");
+    drop(fixture.store);
+    crate::storage::inherit_legacy_data(&data, &legacy).unwrap();
+    fixture.store = Store::open(&data).unwrap();
+    deployments::initialize(&fixture.store).unwrap();
+    let (target, target_id, target_lock) =
+        initialize_library(&fixture.store.data_dir.join("library")).unwrap();
+    let migration = Migration {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        source: fixture.store.library_root.clone(),
+        target: target.clone(),
+        source_id: fixture.store.library_id.clone(),
+        target_id,
+        phase: Phase::Ready,
+        inventory: inventory(&fixture.store.library_root, &AtomicBool::new(false)).unwrap(),
+    };
+    copy_library(&migration, &AtomicBool::new(false)).unwrap();
+    fixture.store.save_migration(&migration).unwrap();
+    drop(target_lock);
+    drop(fixture.store);
+    let reopened = Store::open(&data).unwrap();
+    assert_eq!(reopened.library_root, target);
+    assert_eq!(reopened.list_skills().unwrap()[0].id, fixture.skill.id);
+    assert!(
+        reopened
+            .read_revision(&fixture.skill.latest_revision_id)
+            .unwrap()
+            .markdown
+            .contains("first version")
+    );
+    assert!(migration.source.join("library.json").is_file());
+    assert!(!reopened.data_dir.join(JOURNAL).exists());
+}
+
 struct Fixture {
     store: Store,
     root: tempfile::TempDir,

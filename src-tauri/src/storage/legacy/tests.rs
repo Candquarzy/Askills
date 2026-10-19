@@ -93,6 +93,19 @@ fn upgrade_preserves_wal_preferences_skills_projects_and_live_deployments() {
         inherit_legacy_data(&destination, &legacy).unwrap();
         let mut reopened = Store::open(&destination).unwrap();
         assert_eq!(reopened.locale().unwrap(), Locale::Chinese);
+        // Upgraded users can opt in to moving their preserved library into the
+        // new default location through the normal migration command.
+        let new_default = reopened.data_dir.join("library");
+        reopened.migrate_library(&new_default, &cancel).unwrap();
+        assert_eq!(
+            reopened.library_root,
+            canonical_directory(&new_default).unwrap()
+        );
+        assert!(
+            Path::new(&deployment.target_path)
+                .join("SKILL.md")
+                .is_file()
+        );
         deployments::uninstall(&mut reopened, &deployment.id, &cancel).unwrap();
         assert!(library.join("library.json").is_file());
         assert!(legacy.join("askills.db").is_file());

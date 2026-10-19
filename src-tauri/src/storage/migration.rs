@@ -188,6 +188,13 @@ fn validate_destination(root: &Path) -> Result<()> {
 }
 
 impl Store {
+    fn conflicts_with_application_data(&self, root: &Path) -> bool {
+        // The dedicated default library is safe; never admit other children of
+        // the data directory, its ancestors, or the data directory itself.
+        (root.starts_with(&self.data_dir) && root != self.data_dir.join("library"))
+            || self.data_dir.starts_with(root)
+    }
+
     fn migration_target(&self, path: &Path) -> Result<PathBuf> {
         safe_library_root(path)?;
         let root = if path.exists() {
@@ -207,8 +214,7 @@ impl Store {
         }
         if root.starts_with(&self.library_root)
             || self.library_root.starts_with(&root)
-            || root.starts_with(&self.data_dir)
-            || self.data_dir.starts_with(&root)
+            || self.conflicts_with_application_data(&root)
         {
             return Err(AppError::new(
                 "UnsafeLibraryRoot",
@@ -315,8 +321,7 @@ impl Store {
         safe_library_root(&migration.target)?;
         if migration.source.starts_with(&migration.target)
             || migration.target.starts_with(&migration.source)
-            || migration.target.starts_with(&self.data_dir)
-            || self.data_dir.starts_with(&migration.target)
+            || self.conflicts_with_application_data(&migration.target)
         {
             return Err(AppError::new("InvalidState", "库迁移记录中的目录重叠"));
         }
