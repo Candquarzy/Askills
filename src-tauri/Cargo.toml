@@ -1,5 +1,6 @@
 [package]
 name = "askills"
+default-run = "askills"
 version = "1.0.0-fix"
 description = "A local-first desktop manager for Agent Skills"
 authors = ["Candquarzy"]

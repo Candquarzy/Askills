@@ -15,10 +15,10 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, State};
-use tauri_plugin_dialog::DialogExt;
 
 mod bootstrap;
+pub mod desktop;
+pub mod stdio;
 pub use bootstrap::initialize_runtime;
 
 #[cfg(test)]
@@ -147,6 +147,8 @@ pub struct Runtime {
     workspace: Mutex<Result<Workspace>>,
     busy: AtomicBool,
     cancel: AtomicBool,
+    shutting_down: AtomicBool,
+    host_manages_cancellation: AtomicBool,
     download_progress: Mutex<Option<DownloadStatus>>,
 }
 #[derive(Clone, Serialize)]
@@ -158,18 +160,6 @@ pub struct DownloadStatus {
     stage: String,
 }
 impl Runtime {
-    pub fn apply_initial_preferences(&self, app: &AppHandle) {
-        if let Ok(locked) = self.workspace.lock()
-            && let Ok(workspace) = locked.as_ref()
-            && let Ok(appearance) = workspace.store.appearance()
-            && let Some(window) = app.get_webview_window("main")
-        {
-            let _ = window.set_theme(native_theme(appearance.mode));
-            if let Ok(locale) = workspace.store.locale() {
-                let _ = window.set_title(locale.window_title());
-            }
-        }
-    }
     pub fn new(path: PathBuf) -> Arc<Self> {
         Self::from_workspace(Workspace::open(path))
     }
@@ -178,15 +168,10 @@ impl Runtime {
             workspace: Mutex::new(workspace),
             busy: AtomicBool::new(false),
             cancel: AtomicBool::new(false),
+            shutting_down: AtomicBool::new(false),
+            host_manages_cancellation: AtomicBool::new(false),
             download_progress: Mutex::new(None),
         })
-    }
-}
-fn native_theme(mode: ThemeMode) -> Option<tauri::Theme> {
-    match mode {
-        ThemeMode::System => None,
-        ThemeMode::Light => Some(tauri::Theme::Light),
-        ThemeMode::Dark => Some(tauri::Theme::Dark),
     }
 }
 struct BusyGuard(Arc<Runtime>);
@@ -204,7 +189,14 @@ async fn work<T: Send + 'static>(
         .busy
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .map_err(|_| AppError::new("Busy", "另一个操作正在进行，请等待或取消后重试"))?;
-    runtime.cancel.store(false, Ordering::Release);
+    if !runtime.host_manages_cancellation.load(Ordering::Acquire) {
+        runtime.cancel.store(false, Ordering::Release);
+    }
+    // A helper can receive EOF immediately after accepting a request. Do not
+    // clear its shutdown cancellation when the worker starts a moment later.
+    if runtime.shutting_down.load(Ordering::Acquire) {
+        runtime.cancel.store(true, Ordering::Release);
+    }
     let guard = BusyGuard(runtime.clone());
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
@@ -271,9 +263,8 @@ pub struct RevisionDiff {
     after: String,
 }
 
-#[tauri::command]
-pub async fn get_snapshot(state: State<'_, Arc<Runtime>>) -> Result<Snapshot> {
-    work(state.inner().clone(), |w, c| {
+pub async fn get_snapshot(state: Arc<Runtime>) -> Result<Snapshot> {
+    work(state.clone(), |w, c| {
         Ok(Snapshot {
             skills: w.store.list_skills()?,
             projects: w.store.list_projects()?,
@@ -287,120 +278,79 @@ pub async fn get_snapshot(state: State<'_, Arc<Runtime>>) -> Result<Snapshot> {
     })
     .await
 }
-#[tauri::command]
-pub async fn remove_library_skills(
-    state: State<'_, Arc<Runtime>>,
-    skill_ids: Vec<String>,
-) -> Result<()> {
-    work(state.inner().clone(), move |w, c| {
+pub async fn remove_library_skills(state: Arc<Runtime>, skill_ids: Vec<String>) -> Result<()> {
+    work(state.clone(), move |w, c| {
         w.store.remove_library_skills(&skill_ids, c)
     })
     .await
 }
-#[tauri::command]
-pub async fn remove_projects(
-    state: State<'_, Arc<Runtime>>,
-    project_ids: Vec<String>,
-) -> Result<()> {
-    work(state.inner().clone(), move |w, c| {
+pub async fn remove_projects(state: Arc<Runtime>, project_ids: Vec<String>) -> Result<()> {
+    work(state.clone(), move |w, c| {
         w.store.remove_projects(&project_ids, c)
     })
     .await
 }
-#[tauri::command]
 pub async fn set_project_display_name(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     project_id: String,
     display_name: String,
 ) -> Result<Project> {
-    work(state.inner().clone(), move |w, _| {
+    work(state.clone(), move |w, _| {
         w.store.set_project_display_name(&project_id, &display_name)
     })
     .await
 }
-#[tauri::command]
-pub async fn set_locale(
-    app: AppHandle,
-    state: State<'_, Arc<Runtime>>,
-    locale: Locale,
-) -> Result<Locale> {
-    work(state.inner().clone(), move |w, _| {
-        let saved = w.store.set_locale(locale)?;
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.set_title(saved.window_title());
-        }
-        Ok(saved)
+pub async fn set_locale(state: Arc<Runtime>, locale: Locale) -> Result<Locale> {
+    work(state.clone(), move |w, _| w.store.set_locale(locale)).await
+}
+pub async fn set_appearance(state: Arc<Runtime>, appearance: Appearance) -> Result<Appearance> {
+    work(state.clone(), move |w, _| {
+        w.store.set_appearance(appearance)
     })
     .await
 }
-#[tauri::command]
-pub async fn set_appearance(
-    app: AppHandle,
-    state: State<'_, Arc<Runtime>>,
-    appearance: Appearance,
-) -> Result<Appearance> {
-    work(state.inner().clone(), move |w, _| {
-        let saved = w.store.set_appearance(appearance)?;
-        if let Some(window) = app.get_webview_window("main") {
-            // Native decorations depend on platform support; content theming
-            // and persistence must remain usable if decorations cannot change.
-            let _ = window.set_theme(native_theme(saved.mode));
-        }
-        Ok(saved)
-    })
-    .await
-}
-#[tauri::command]
-pub async fn remember_repository(
-    state: State<'_, Arc<Runtime>>,
-    repository: String,
-) -> Result<Vec<String>> {
-    work(state.inner().clone(), move |w, _| {
+pub async fn remember_repository(state: Arc<Runtime>, repository: String) -> Result<Vec<String>> {
+    work(state.clone(), move |w, _| {
         w.store.remember_repository(&repository)
     })
     .await
 }
-#[tauri::command]
-pub async fn pick_directory(
-    app: AppHandle,
-    state: State<'_, Arc<Runtime>>,
-    purpose: String,
-) -> Result<Option<DirectorySelection>> {
-    let titles = match purpose.as_str() {
-        "import" => (
+fn directory_titles(purpose: &str) -> Result<(&'static str, &'static str)> {
+    match purpose {
+        "import" => Ok((
             "选择包含 SKILL.md 的 skill 文件夹",
             "Choose a skill folder containing SKILL.md",
-        ),
-        "project" => ("选择项目文件夹", "Choose a project folder"),
-        "discover" => ("选择项目扫描根目录", "Choose a folder to scan for projects"),
-        "library" => ("选择空的 skills 库目录", "Choose an empty library folder"),
-        _ => return Err(AppError::new("InvalidSelection", "不支持的目录用途")),
-    };
-    work(state.inner().clone(), move |w, _| {
-        let title = if w.store.locale()? == Locale::English {
-            titles.1
-        } else {
-            titles.0
-        };
-        let Some(selected) = app.dialog().file().set_title(title).blocking_pick_folder() else {
-            return Ok(None);
-        };
-        let path = selected
-            .into_path()
-            .map_err(|e| AppError::new("InvalidPath", e.to_string()))?;
-        // A fresh native choice replaces the previous UI flow and any abandoned
-        // discovery batch, keeping directory grants bounded across repeated scans.
+        )),
+        "project" => Ok(("选择项目文件夹", "Choose a project folder")),
+        "discover" => Ok(("选择项目扫描根目录", "Choose a folder to scan for projects")),
+        "library" => Ok(("选择空的 skills 库目录", "Choose an empty library folder")),
+        _ => Err(AppError::new("InvalidSelection", "不支持的目录用途")),
+    }
+}
+
+// Called only by a trusted native host after its directory chooser succeeds.
+async fn register_directory_selection(
+    state: Arc<Runtime>,
+    path: PathBuf,
+    purpose: String,
+) -> Result<DirectorySelection> {
+    directory_titles(&purpose)?;
+    work(state, move |w, _| {
+        if !path.is_absolute() {
+            return Err(AppError::new("InvalidPath", "目录必须为绝对路径"));
+        }
+        crate::platform::fs::assert_safe_path(&path)?;
+        if !path.is_dir() {
+            return Err(AppError::new("InvalidPath", "请选择存在的目录"));
+        }
         w.selections.clear();
-        w.add_selection(path, &purpose).map(Some)
+        w.add_selection(path, &purpose)
     })
     .await
 }
-#[tauri::command]
-pub async fn prepare_import(
-    state: State<'_, Arc<Runtime>>,
-    selection_id: String,
-) -> Result<PreparedImport> {
-    work(state.inner().clone(), move |w, c| {
+
+pub async fn prepare_import(state: Arc<Runtime>, selection_id: String) -> Result<PreparedImport> {
+    work(state.clone(), move |w, c| {
         let path = w.selection(&selection_id, "import")?;
         let value = w.prepare(path, None, None, c)?;
         w.selections.remove(&selection_id);
@@ -408,9 +358,8 @@ pub async fn prepare_import(
     })
     .await
 }
-#[tauri::command]
-pub async fn finish_import(state: State<'_, Arc<Runtime>>, import_id: String) -> Result<Skill> {
-    work(state.inner().clone(), move |w, c| {
+pub async fn finish_import(state: Arc<Runtime>, import_id: String) -> Result<Skill> {
+    work(state.clone(), move |w, c| {
         let pending = w
             .imports
             .get(&import_id)
@@ -426,20 +375,15 @@ pub async fn finish_import(state: State<'_, Arc<Runtime>>, import_id: String) ->
     })
     .await
 }
-#[tauri::command]
-pub async fn discard_import(state: State<'_, Arc<Runtime>>, import_id: String) -> Result<()> {
-    work(state.inner().clone(), move |w, _| {
+pub async fn discard_import(state: Arc<Runtime>, import_id: String) -> Result<()> {
+    work(state.clone(), move |w, _| {
         w.imports.remove(&import_id);
         Ok(())
     })
     .await
 }
-#[tauri::command]
-pub async fn register_project(
-    state: State<'_, Arc<Runtime>>,
-    selection_id: String,
-) -> Result<Project> {
-    work(state.inner().clone(), move |w, _| {
+pub async fn register_project(state: Arc<Runtime>, selection_id: String) -> Result<Project> {
+    work(state.clone(), move |w, _| {
         let p = w.selection(&selection_id, "project")?;
         let result = w.store.add_project(&p)?;
         w.selections.remove(&selection_id);
@@ -447,12 +391,11 @@ pub async fn register_project(
     })
     .await
 }
-#[tauri::command]
 pub async fn discover_projects(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     selection_id: String,
 ) -> Result<Vec<DiscoveredProject>> {
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         let root = w.selection(&selection_id, "discover")?;
         let candidates = projects::discover_projects(&root, 4, c)?;
         if candidates.len() > SELECTION_LIMIT {
@@ -477,87 +420,64 @@ pub async fn discover_projects(
     })
     .await
 }
-#[tauri::command]
-pub async fn scan_project(
-    state: State<'_, Arc<Runtime>>,
-    project_id: String,
-) -> Result<Vec<DetectedSkill>> {
-    work(state.inner().clone(), move |w, c| {
+pub async fn scan_project(state: Arc<Runtime>, project_id: String) -> Result<Vec<DetectedSkill>> {
+    work(state.clone(), move |w, c| {
         let p = w.store.project(&project_id)?;
         projects::scan_project(&PathBuf::from(p.path), c)
     })
     .await
 }
-#[tauri::command]
-pub async fn get_document(
-    state: State<'_, Arc<Runtime>>,
-    revision_id: String,
-) -> Result<SkillDocument> {
-    work(state.inner().clone(), move |w, c| {
+pub async fn get_document(state: Arc<Runtime>, revision_id: String) -> Result<SkillDocument> {
+    work(state.clone(), move |w, c| {
         w.store.read_revision_cancellable(&revision_id, c)
     })
     .await
 }
-#[tauri::command]
-pub async fn get_revisions(
-    state: State<'_, Arc<Runtime>>,
-    skill_id: String,
-) -> Result<Vec<Revision>> {
-    work(state.inner().clone(), move |w, _| {
-        w.store.list_revisions(&skill_id)
-    })
-    .await
+pub async fn get_revisions(state: Arc<Runtime>, skill_id: String) -> Result<Vec<Revision>> {
+    work(state.clone(), move |w, _| w.store.list_revisions(&skill_id)).await
 }
-#[tauri::command]
 pub async fn preview_deployment(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     project_id: String,
     revision_id: String,
     agent: String,
     mode: String,
 ) -> Result<deployments::Plan> {
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         deployments::plan_cancellable(&w.store, &project_id, &revision_id, &agent, &mode, c)
     })
     .await
 }
-#[tauri::command]
 pub async fn apply_deployment(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     plan_id: String,
 ) -> Result<deployments::Deployment> {
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         deployments::apply(&mut w.store, &plan_id, c)
     })
     .await
 }
-#[tauri::command]
-pub async fn remove_deployment(
-    state: State<'_, Arc<Runtime>>,
-    deployment_id: String,
-) -> Result<()> {
-    work(state.inner().clone(), move |w, c| {
+pub async fn remove_deployment(state: Arc<Runtime>, deployment_id: String) -> Result<()> {
+    work(state.clone(), move |w, c| {
         deployments::uninstall(&mut w.store, &deployment_id, c)
     })
     .await
 }
-#[tauri::command]
 pub async fn rollback_deployment(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     deployment_id: String,
 ) -> Result<deployments::Deployment> {
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         deployments::rollback(&mut w.store, &deployment_id, c)
     })
     .await
 }
-#[tauri::command]
 pub async fn resolve_github(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     repository: String,
     reference: String,
 ) -> Result<CatalogView> {
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         if w.catalogs.len() >= CATALOG_LIMIT {
             w.catalogs.clear();
         }
@@ -581,19 +501,18 @@ pub async fn resolve_github(
     })
     .await
 }
-#[tauri::command]
 pub async fn prepare_github(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     catalog_id: String,
     skill_path: String,
     request_id: Option<String>,
 ) -> Result<PreparedImport> {
-    let runtime = state.inner().clone();
+    let runtime = state.clone();
     let request_id = request_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     if request_id.len() > 80 || request_id.is_empty() {
         return Err(AppError::new("InvalidRequest", "下载任务编号无效"));
     }
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         let saved = w
             .catalogs
             .get(&catalog_id)
@@ -626,11 +545,7 @@ pub async fn prepare_github(
     })
     .await
 }
-#[tauri::command]
-pub fn get_download_progress(
-    state: State<'_, Arc<Runtime>>,
-    request_id: String,
-) -> Option<DownloadStatus> {
+pub fn get_download_progress(state: Arc<Runtime>, request_id: String) -> Option<DownloadStatus> {
     // Read-only progress does not take the workspace mutex or enter the job queue.
     state
         .download_progress
@@ -640,17 +555,15 @@ pub fn get_download_progress(
         .filter(|value| value.request_id == request_id)
         .cloned()
 }
-#[tauri::command]
-pub async fn get_git_version(state: State<'_, Arc<Runtime>>) -> Result<String> {
-    work(state.inner().clone(), |_, c| github::git::version(c)).await
+pub async fn get_git_version(state: Arc<Runtime>) -> Result<String> {
+    work(state.clone(), |_, c| github::git::version(c)).await
 }
-#[tauri::command]
 pub async fn resolve_git(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     repository: String,
     reference: String,
 ) -> Result<CatalogView> {
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         if w.catalogs.len() >= CATALOG_LIMIT {
             w.catalogs.clear();
         }
@@ -675,23 +588,18 @@ pub async fn resolve_git(
     })
     .await
 }
-#[tauri::command]
 pub async fn preview_library_migration(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     selection_id: String,
 ) -> Result<LibraryMigrationPlan> {
-    work(state.inner().clone(), move |w, cancel| {
+    work(state.clone(), move |w, cancel| {
         let path = w.selection(&selection_id, "library")?;
         w.store.preview_library_migration(&path, cancel)
     })
     .await
 }
-#[tauri::command]
-pub async fn discard_selections(
-    state: State<'_, Arc<Runtime>>,
-    selection_ids: Vec<String>,
-) -> Result<()> {
-    work(state.inner().clone(), move |w, _| {
+pub async fn discard_selections(state: Arc<Runtime>, selection_ids: Vec<String>) -> Result<()> {
+    work(state.clone(), move |w, _| {
         if selection_ids.len() > SELECTION_LIMIT {
             return Err(AppError::new("SelectionLimit", "目录选择数量超过上限"));
         }
@@ -702,38 +610,34 @@ pub async fn discard_selections(
     })
     .await
 }
-#[tauri::command]
 pub async fn set_library_root(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     selection_id: String,
 ) -> Result<LibraryMigrationResult> {
-    work(state.inner().clone(), move |w, cancel| {
+    work(state.clone(), move |w, cancel| {
         w.migrate_selection(&selection_id, cancel)
     })
     .await
 }
-#[tauri::command]
-pub fn cancel_operation(state: State<'_, Arc<Runtime>>) {
+pub fn cancel_operation(state: Arc<Runtime>) {
     state.cancel.store(true, Ordering::Release);
 }
-#[tauri::command]
 pub async fn set_skill_display_name(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     skill_id: String,
     display_name: String,
 ) -> Result<Skill> {
-    work(state.inner().clone(), move |w, _| {
+    work(state.clone(), move |w, _| {
         w.store.set_display_name(&skill_id, &display_name)
     })
     .await
 }
-#[tauri::command]
 pub async fn get_revision_diff(
-    state: State<'_, Arc<Runtime>>,
+    state: Arc<Runtime>,
     before_id: String,
     after_id: String,
 ) -> Result<RevisionDiff> {
-    work(state.inner().clone(), move |w, c| {
+    work(state.clone(), move |w, c| {
         let before = w.store.read_revision_cancellable(&before_id, c)?;
         let after = w.store.read_revision_cancellable(&after_id, c)?;
         if before.skill.id != after.skill.id {

@@ -1,4 +1,5 @@
 use super::*;
+use tauri::{AppHandle, Manager};
 
 #[cfg(windows)]
 const DATA_DIRECTORY_NAME: &str = "asklils";
@@ -45,6 +46,34 @@ pub fn initialize_runtime(app: &AppHandle) -> Result<Arc<Runtime>> {
     let workspace =
         crate::storage::inherit_legacy_data(&data, &legacy).and_then(|()| Workspace::open(data));
     Ok(Runtime::from_workspace(workspace))
+}
+
+pub(super) fn initialize_helper(isolated: Option<PathBuf>) -> Result<Arc<Runtime>> {
+    if let Some(data) = isolated {
+        if !data.is_absolute() {
+            return Err(AppError::new("InvalidPath", "测试数据目录必须为绝对路径"));
+        }
+        return Ok(Runtime::new(data));
+    }
+    #[cfg(windows)]
+    {
+        let local = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .ok_or_else(|| AppError::new("DataDirectory", "无法确定本地应用数据目录"))?;
+        let legacy = local.join("io.github.candquarzy.askills");
+        let data = resolve_directory(&local, legacy.clone(), None);
+        let workspace = crate::storage::inherit_legacy_data(&data, &legacy)
+            .and_then(|()| Workspace::open(data));
+        Ok(Runtime::from_workspace(workspace))
+    }
+    #[cfg(not(windows))]
+    {
+        Err(AppError::new(
+            "UnsupportedPlatform",
+            "当前 ZTools 插件仅支持 Windows，请使用 --data-dir 运行跨平台测试",
+        ))
+    }
 }
 
 #[cfg(test)]
