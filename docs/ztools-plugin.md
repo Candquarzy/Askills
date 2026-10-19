@@ -1,6 +1,6 @@
-# ZTools 插件（本地开发版）
+# ZTools 插件
 
-Askills 的 ZTools 插件复用桌面版的 React 界面与 Rust 业务逻辑，提供 skills 库、项目、来源和设置四个页面。目前支持 Windows x64，插件尚未发布到插件中心。
+Askills 的 ZTools 插件复用桌面版的 React 界面与 Rust 业务逻辑，提供 skills 库、项目、来源和设置四个页面。目前支持 Windows x64，当前版本为 **1.0.1**。插件中心通过官方仓库 PR 审核后上架。
 
 ## 本地安装与使用
 
@@ -65,6 +65,23 @@ pnpm test:ztools:host --archive
 宿主测试会打开系统文件夹选择器，验证返回授权并立即释放；不会对默认选中的目录进行导入、扫描或写入。导入、项目部署、升级回滚与库迁移由 `test:ztools:helper` 在临时目录验证。请勿在宿主测试运行时操作其测试窗口。
 
 CI 在 Windows 构建桌面 EXE 与 ZTools 包并保留为构建附件，不自动发布。真实 ZTools 宿主测试需要本机安装，因此不在 GitHub runner 上运行。
+
+## 提交插件中心
+
+插件中心使用 [官方 fork／PR 流程](https://docs.z-tools.top/publish-and-update.html)。发布目录与本仓库分开准备，避免把个人数据、测试运行结果或整个开发目录当作可执行插件分发。
+
+先完成本地提交并保证工作区干净，然后运行：
+
+```powershell
+pnpm build:ztools --out-dir artifacts/ztools/Askills-publish-build
+pnpm prepare:ztools:publish --plugin-dir artifacts/ztools/Askills-publish-build --out-dir artifacts/ztools/Askills-center
+```
+
+准备目录包含：`payload/` 中经过本机验证的运行文件、`source/` 中来自已提交版本的完整源码快照、逐文件 SHA-256 摘要、MIT／字体许可、更新记录和使用说明。运行文件包含预编译的 Windows x64 Rust helper；源码快照可用于重新编译及审查。
+
+中心构建执行准备目录的 `node build.mjs`，验证运行文件摘要并生成 `dist/`，只分发实际插件文件。中心当前的 Node.js 20 构建环境不需要安装本项目的 Rust／Node.js 24 工具链；从源码重新编译的命令保留在准备目录说明中。
+
+`prepare:ztools:publish` 不访问 GitHub、不推送或发布。准备目录可按官方 CLI 的要求初始化为独立 Git 仓库后执行 `ztools publish`；也可使用已登录的 GitHub CLI，按同一 fork、插件分支和 PR 流程提交。提交时应附截图、填写自检清单并将 PR 标为可审核；提交审核不等于已经上架。
 
 ## 代码结构与调用范围
 

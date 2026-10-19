@@ -122,13 +122,11 @@ await run("cargo", [
   "--release",
 ]);
 
-const packageJson = JSON.parse(
-  await readFile(path.join(root, "package.json"), "utf8"),
-);
 const manifest = JSON.parse(
   await readFile(path.join(root, "ztools", "plugin.json"), "utf8"),
 );
-manifest.version = packageJson.version;
+if (!/^\d+\.\d+\.\d+$/.test(manifest.version))
+  throw new Error("The ZTools plugin version must use major.minor.patch.");
 const helper = path.join(
   root,
   "src-tauri",

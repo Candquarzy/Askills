@@ -409,7 +409,7 @@ try {
       "real Rust IPC returned the release version and an isolated empty library",
     );
     await expect(page.locator(".sidebar-bottom .version")).toContainText(
-      appInfo.version,
+      manifest.version,
     );
     await page.evaluate(() =>
       document.fonts.load('400 14px "MiSans"', "skills ABC 012"),

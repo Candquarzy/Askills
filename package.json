@@ -1,12 +1,13 @@
 {
   "name": "askills",
   "private": true,
-  "version": "1.0.0-fix",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "build:ztools": "node scripts/build-ztools.mjs",
+    "prepare:ztools:publish": "node scripts/prepare-ztools-publish.mjs",
     "test:ztools": "node --test tests/ztools/*.test.cjs",
     "test:ztools:helper": "node scripts/ztools-helper-smoke.mjs",
     "test:ztools:host": "node scripts/ztools-host-smoke.mjs",
